@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#121713" />
   <meta name="description" content="شطرنج القهوة — شطرنج أونلاين خاص بين صديقين بالقواعد القياسية." />
   <title>شطرنج القهوة</title>
-  <link rel="icon" href="./logo-coffee.png?v=7.1.2" />
-  <link rel="manifest" href="./manifest.webmanifest?v=7.1.2" />
+  <link rel="icon" href="./logo-coffee.png?v=7.3.0" />
+  <link rel="manifest" href="./manifest.webmanifest?v=7.3.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./chess.css?v=7.1.2" />
+  <link rel="stylesheet" href="./chess.css?v=7.3.0" />
 </head>
 <body>
   <header class="topbar">
@@ -32,13 +32,13 @@
             <label><span>الوقت لكل لاعب</span><select id="timeControl"><option value="0">بدون ساعة</option><option value="600000">10 دقائق</option><option value="300000">5 دقائق</option><option value="180000">3 دقائق</option></select></label>
             <label><span>لونك عند الإنشاء</span><select id="colorChoice"><option value="random">عشوائي</option><option value="white">أبيض</option><option value="black">أسود</option></select></label>
             <label><span>ألوان الرقعة</span><select id="boardThemeChoice"><option value="classic">كلاسيكي خشبي</option><option value="green">أخضر وبيج</option><option value="blue">أزرق ورمادي</option><option value="coffee">قهوة</option><option value="darkgold">أسود وذهبي</option></select></label>
-            <label><span>ستايل القطع</span><select id="pieceThemeChoice"><option value="classic">كلاسيكي</option><option value="wood">خشبي</option><option value="gold">ذهبي</option><option value="pastel">هادئ</option><option value="mono">أبيض وأسود</option></select></label>
+            <label><span>ستايل القطع</span><select id="pieceThemeChoice"><option value="classic">كلاسيكي احترافي</option><option value="slate">Slate حديث</option><option value="wood">خشبي فاخر</option><option value="royal">ملكي ذهبي</option></select></label>
           </div>
           <div class="actions"><button id="createRoomBtn" class="btn primary">إنشاء مباراة</button><button id="showJoinBtn" class="btn secondary">دخول بكود</button></div>
           <div id="joinBox" class="join hidden"><input id="roomCodeInput" inputmode="numeric" maxlength="6" placeholder="كود الغرفة" /><button id="joinRoomBtn" class="btn primary">دخول</button></div>
           <p id="homeMessage" class="message"></p>
         </div>
-        <div class="home-art"><div class="board-mini"><span>♜</span><span>♞</span><span>♝</span><span>♛</span><span>♚</span><span>♝</span><span>♞</span><span>♜</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♖</span><span>♘</span><span>♗</span><span>♕</span><span>♔</span><span>♗</span><span>♘</span><span>♖</span></div></div>
+        <div class="home-art"><div id="miniBoard" class="board-mini"><span>♜</span><span>♞</span><span>♝</span><span>♛</span><span>♚</span><span>♝</span><span>♞</span><span>♜</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♖</span><span>♘</span><span>♗</span><span>♕</span><span>♔</span><span>♗</span><span>♘</span><span>♖</span></div></div>
       </div>
     </section>
 
@@ -53,7 +53,7 @@
           <div id="opponentInfo" class="player-card"></div>
           <div id="opponentClock" class="clock">--:--</div>
           <div class="captured-wrap"><span>القطع المأخوذة</span><div id="capturedByMe" class="captured"></div></div>
-          <div class="game-buttons"><button id="offerDrawBtn" class="btn small secondary">عرض تعادل</button><button id="resignBtn" class="btn small danger">استسلام</button><button id="shareInGameBtn" class="btn small ghost">مشاركة الكود</button></div>
+          <div class="game-buttons"><button id="offerDrawBtn" class="btn small secondary">عرض تعادل</button><button id="resignBtn" class="btn small danger">استسلام</button><button id="shareInGameBtn" class="btn small ghost">مشاركة الكود</button></div><div class="live-theme-box"><label><span>ألوان الرقعة</span><select id="gameBoardThemeChoice"><option value="classic">كلاسيكي خشبي</option><option value="green">أخضر وبيج</option><option value="blue">أزرق ورمادي</option><option value="coffee">قهوة</option><option value="darkgold">أسود وذهبي</option></select></label><label><span>ستايل القطع</span><select id="gamePieceThemeChoice"><option value="classic">كلاسيكي احترافي</option><option value="slate">Slate حديث</option><option value="wood">خشبي فاخر</option><option value="royal">ملكي ذهبي</option></select></label></div>
         </aside>
 
         <section class="board-area">
@@ -83,6 +83,6 @@
   <div id="resultModal" class="modal hidden"><div class="modal-card result-card"><div id="resultEmoji" class="result-emoji">🏆</div><h2 id="resultTitle">انتهت المباراة</h2><p id="resultText"></p><div class="modal-actions"><button id="rematchBtn" class="btn primary">مباراة جديدة وتبديل الألوان</button><button id="resultHomeBtn" class="btn ghost">العودة للقهوة</button></div></div></div>
   <div id="voiceIncomingModal" class="modal hidden"><div class="modal-card"><div class="incoming-mic">🎙️</div><h3>مكالمة صوتية واردة</h3><p><strong id="voiceCallerName">صاحبك</strong> عايز يفتح الاتصال الصوتي.</p><div class="modal-actions"><button id="voiceDeclineBtn" class="btn ghost danger">رفض</button><button id="voiceAcceptBtn" class="btn primary">قبول</button></div></div></div>
   <div id="toast" class="toast hidden"></div>
-  <script type="module" src="./chess-app.js?v=7.1.2"></script>
+  <script type="module" src="./chess-app.js?v=7.3.0"></script>
 </body>
 </html>
