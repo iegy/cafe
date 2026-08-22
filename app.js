@@ -3,7 +3,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=4.0.0";
+import { firebaseConfig } from "./firebase-config.js?v=5.0.0";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -31,7 +31,11 @@ const els = {
   voiceCallBtn:$("voiceCallBtn"), voiceCallLabel:$("voiceCallLabel"), voiceActiveBar:$("voiceActiveBar"),
   voiceStatusText:$("voiceStatusText"), voiceMuteBtn:$("voiceMuteBtn"), voiceHangupBtn:$("voiceHangupBtn"),
   voiceIncomingModal:$("voiceIncomingModal"), voiceCallerName:$("voiceCallerName"), voiceAcceptBtn:$("voiceAcceptBtn"),
-  voiceDeclineBtn:$("voiceDeclineBtn"), remoteAudio:$("remoteAudio")
+  voiceDeclineBtn:$("voiceDeclineBtn"), remoteAudio:$("remoteAudio"),
+  mobileGameHud:$("mobileGameHud"), mobileOpponentAvatar:$("mobileOpponentAvatar"), mobileOpponentName:$("mobileOpponentName"),
+  mobileOpponentCount:$("mobileOpponentCount"), mobileOpponentScore:$("mobileOpponentScore"), mobileRoundLabel:$("mobileRoundLabel"),
+  mobileTargetLabel:$("mobileTargetLabel"), mobileMeScore:$("mobileMeScore"), mobileMeName:$("mobileMeName"),
+  mobileMeCount:$("mobileMeCount"), mobileMeAvatar:$("mobileMeAvatar"), mobileShareBtn:$("mobileShareBtn"), mobileLeaveBtn:$("mobileLeaveBtn")
 };
 
 const state = {
@@ -57,7 +61,7 @@ const soundBuffers={};
 async function preloadSounds(){
   try{
     const ac=audioContext();
-    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=4.0.0",draw:"./assets/domino-draw.wav?v=4.0.0",win:"./assets/domino-win.wav?v=4.0.0"})){
+    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=5.0.0",draw:"./assets/domino-draw.wav?v=5.0.0",win:"./assets/domino-win.wav?v=5.0.0"})){
       if(soundBuffers[kind]) continue;
       const res=await fetch(url); if(!res.ok) continue;
       soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
@@ -273,6 +277,18 @@ function renderGame(room){
   els.targetScoreLabel.textContent=mode==="single"?"جولة واحدة":`${target} نقطة`;
   els.scoreRows.innerHTML=ids.map(uid=>`<div class="score-row"><span>${escapeHtml(room.players?.[uid]?.name||"لاعب")}${uid===state.uid?" (أنت)":""}</span><b>${room.players?.[uid]?.score||0}</b></div>`).join("");
   const myHand=normalizeTiles(g.hands?.[state.uid]), oppHand=normalizeTiles(g.hands?.[opp]);
+  if(els.mobileGameHud){
+    els.mobileOpponentAvatar.textContent=op.avatar||"😎";
+    els.mobileOpponentName.textContent=op.name||"صاحبك";
+    els.mobileOpponentCount.textContent=`${oppHand.length} قطع`;
+    els.mobileOpponentScore.textContent=String(op.score||0);
+    els.mobileMeAvatar.textContent=me.avatar||"😎";
+    els.mobileMeName.textContent=me.name||"أنت";
+    els.mobileMeCount.textContent=`${myHand.length} قطع`;
+    els.mobileMeScore.textContent=String(me.score||0);
+    els.mobileRoundLabel.textContent=`الجولة ${g.round||1}`;
+    els.mobileTargetLabel.textContent=mode==="single"?"جولة واحدة":`إلى ${target}`;
+  }
   els.meBar.innerHTML=playerBarHtml(me,myHand.length,"أنت");
   els.opponentBar.innerHTML=playerBarHtml(op,oppHand.length,"صاحبك");
   const myTurn=g.turn===state.uid && room.status==="playing";
@@ -302,24 +318,9 @@ function playerBarHtml(p,count,label){
   return `<span class="ava">${p.avatar||"😎"}</span><div class="pinfo"><b>${escapeHtml(p.name||"لاعب")} <small>${label}</small></b><small>${count} قطع</small></div><span class="status-dot" style="${p.connected===false?"background:#7d8da0;box-shadow:none":""}"></span>`;
 }
 
-function renderBoard(boardRaw){
-  const board=normalizeTiles(boardRaw); els.board.innerHTML="";
-  els.board.style.removeProperty("height");
-  const width=Math.max(270,els.board.clientWidth||els.board.parentElement?.clientWidth||720);
-
-  if(!board.length){
-    els.board.style.height=`${width<470?250:300}px`;
-    const e=document.createElement("div"); e.className="board-empty"; e.textContent="ابدأ أول قطعة"; els.board.appendChild(e); return;
-  }
-
-  // Build one continuous serpentine domino chain.  Rows are planned first so
-  // every tile has enough room and no piece can overlap another on phones.
-  const compact=width<470, medium=width<760;
-  const long=Math.round(compact?Math.max(50,Math.min(58,width/6)):
-                        medium?Math.max(58,Math.min(72,width/7.5)):
-                        Math.max(68,Math.min(86,width/9.5)));
-  const short=Math.round(long*.55), gap=2;
-  const margin=Math.max(8,Math.round(short*.28));
+function planBoardLayout(board,width,long){
+  const short=Math.round(long*.55),gap=Math.max(1,Math.round(long*.025));
+  const margin=Math.max(5,Math.round(short*.24));
   const minX=margin,maxX=width-margin;
   const isDouble=t=>{const [a,b]=t.split("-");return a===b;};
   const extent=t=>isDouble(t)?short:long;
@@ -335,9 +336,7 @@ function renderBoard(boardRaw){
       const available=dir>0?(maxX-start):(start-minX);
       const row=[];let used=0;
       while(i<board.length){
-        const e=extent(board[i]);
-        const need=e+(row.length?gap:0);
-        const reserve=i<board.length-1?short:0;
+        const e=extent(board[i]),need=e+(row.length?gap:0),reserve=i<board.length-1?short:0;
         if(row.length && used+need+reserve>available)break;
         if(used+need>available)break;
         row.push(board[i]);used+=need;i++;
@@ -345,51 +344,82 @@ function renderBoard(boardRaw){
       if(!row.length){row.push(board[i]);used=extent(board[i]);i++;}
       const endpoint=start+dir*used;
       let turn=null,turnCx=null;
-      if(i<board.length){
-        turn=board[i++];
-        turnCx=endpoint-dir*short/2;
-      }
+      if(i<board.length){turn=board[i++];turnCx=endpoint-dir*short/2;}
       segments.push({row,turn,dir,start,used,endpoint,turnCx});
       if(turn){start=turnCx;dir*=-1;}
     }
   }
 
-  els.board.style.setProperty("--board-long",`${long}px`);
-  els.board.style.setProperty("--board-short",`${short}px`);
-
-  let y=null,maxBottom=0,sequenceIndex=0;
+  const placements=[];let y=null,maxBottom=0,sequenceIndex=0;
   segments.forEach((segment,segmentIndex)=>{
     const rowHalf=segment.row.some(isDouble)?long/2:short/2;
     if(segmentIndex===0)y=margin+rowHalf;
     let x=segment.start;
     for(const tile of segment.row){
-      const dbl=isDouble(tile),pathExtent=extent(tile);
-      const orientation=dbl?"vertical":"horizontal";
+      const dbl=isDouble(tile),pathExtent=extent(tile),orientation=dbl?"vertical":"horizontal";
       const cx=x+segment.dir*pathExtent/2,cy=y;
       const w=orientation==="horizontal"?long:short,h=orientation==="horizontal"?short:long;
-      const el=tileEl(tile,orientation,false);el.classList.add("board-piece");
-      el.style.left=`${cx-w/2}px`;el.style.top=`${cy-h/2}px`;el.style.zIndex=String(10+sequenceIndex++);
-      els.board.appendChild(el);maxBottom=Math.max(maxBottom,cy+h/2);
-      x+=segment.dir*(pathExtent+gap);
+      placements.push({tile,orientation,left:cx-w/2,top:cy-h/2,z:10+sequenceIndex++});
+      maxBottom=Math.max(maxBottom,cy+h/2);x+=segment.dir*(pathExtent+gap);
     }
     if(segment.turn){
-      const top=y+rowHalf+gap;
-      const cx=segment.turnCx,cy=top+long/2;
-      const el=tileEl(segment.turn,"vertical",false);el.classList.add("board-piece","board-turn");
-      el.style.left=`${cx-short/2}px`;el.style.top=`${top}px`;el.style.zIndex=String(10+sequenceIndex++);
-      els.board.appendChild(el);maxBottom=Math.max(maxBottom,top+long);
+      const top=y+rowHalf+gap,cx=segment.turnCx,cy=top+long/2;
+      placements.push({tile:segment.turn,orientation:"vertical",left:cx-short/2,top,z:10+sequenceIndex++,turn:true});
+      maxBottom=Math.max(maxBottom,top+long);
       if(segmentIndex+1<segments.length){
         const nextHalf=segments[segmentIndex+1].row.some(isDouble)?long/2:short/2;
         y=top+long+gap+nextHalf;
       }
     }
   });
+  return {placements,long,short,height:Math.ceil(maxBottom+margin)};
+}
 
-  const minHeight=compact?250:medium?285:320;
-  els.board.style.height=`${Math.max(minHeight,Math.ceil(maxBottom+margin))}px`;
+function renderBoard(boardRaw){
+  const board=normalizeTiles(boardRaw);els.board.innerHTML="";els.board.style.removeProperty("height");
+  const table=els.board.parentElement;
+  const width=Math.max(240,els.board.clientWidth||Math.max(240,(table?.clientWidth||720)-24));
+  const mobile=window.matchMedia("(max-width: 620px)").matches;
+
+  if(!board.length){
+    const emptyHeight=mobile?Math.max(220,(table?.clientHeight||360)-102):(width<470?250:300);
+    els.board.style.height=`${emptyHeight}px`;
+    const e=document.createElement("div");e.className="board-empty";e.textContent="ابدأ أول قطعة";els.board.appendChild(e);return;
+  }
+
+  let layout;
+  if(mobile){
+    const targetHeight=Math.max(220,(table?.clientHeight||360)-102);
+    const maxLong=Math.max(46,Math.min(60,Math.round(width/5.7)));
+    for(let candidate=maxLong;candidate>=34;candidate-=2){
+      const test=planBoardLayout(board,width,candidate);
+      layout=test;
+      if(test.height<=targetHeight-8)break;
+    }
+    const offsetY=Math.max(0,Math.round((targetHeight-layout.height)/2));
+    layout.placements.forEach(p=>p.top+=offsetY);
+    els.board.style.height=`${targetHeight}px`;
+  }else{
+    const compact=width<470,medium=width<760;
+    const long=Math.round(compact?Math.max(50,Math.min(58,width/6)):
+                          medium?Math.max(58,Math.min(72,width/7.5)):
+                          Math.max(68,Math.min(86,width/9.5)));
+    layout=planBoardLayout(board,width,long);
+    const minHeight=compact?250:medium?285:320;
+    els.board.style.height=`${Math.max(minHeight,layout.height)}px`;
+  }
+
+  els.board.style.setProperty("--board-long",`${layout.long}px`);
+  els.board.style.setProperty("--board-short",`${layout.short}px`);
+  layout.placements.forEach(p=>{
+    const el=tileEl(p.tile,p.orientation,false);el.classList.add("board-piece");if(p.turn)el.classList.add("board-turn");
+    el.style.left=`${p.left}px`;el.style.top=`${p.top}px`;el.style.zIndex=String(p.z);els.board.appendChild(el);
+  });
 }
 function renderHand(hand,board,myTurn){
   els.hand.innerHTML="";
+  els.hand.style.setProperty("--hand-count",String(Math.max(1,hand.length)));
+  els.hand.classList.toggle("many-tiles",hand.length>8);
   hand.forEach((t,i)=>{
     const playable=myTurn&&canPlay(t,board), el=tileEl(t,false,playable); el.classList.add("in-hand");
     el.addEventListener("click",()=>selectTile(i,t)); els.hand.appendChild(el);
@@ -737,7 +767,9 @@ els.showJoinBtn.addEventListener("click",()=>els.joinBox.classList.toggle("hidde
 els.joinRoomBtn.addEventListener("click",()=>joinRoom(els.roomCodeInput.value));
 els.roomCodeInput.addEventListener("keydown",e=>{if(e.key==="Enter")joinRoom(els.roomCodeInput.value);});
 els.copyCodeBtn.addEventListener("click",copyCode);els.shareRoomBtn.addEventListener("click",shareRoom);els.shareInGameBtn.addEventListener("click",shareRoom);
+if(els.mobileShareBtn)els.mobileShareBtn.addEventListener("click",shareRoom);
 els.leaveLobbyBtn.addEventListener("click",leaveRoom);els.leaveGameBtn.addEventListener("click",leaveRoom);
+if(els.mobileLeaveBtn)els.mobileLeaveBtn.addEventListener("click",leaveRoom);
 els.drawBtn.addEventListener("click",drawTile);els.passBtn.addEventListener("click",passTurn);
 els.playLeftBtn.addEventListener("click",()=>state.pendingTile&&playTile(state.pendingTile.index,state.pendingTile.tile,"left"));
 els.playRightBtn.addEventListener("click",()=>state.pendingTile&&playTile(state.pendingTile.index,state.pendingTile.tile,"right"));

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=4.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=5.0.0" />
 </head>
 <body>
   <div class="app-bg"></div>
@@ -129,6 +129,23 @@
         </aside>
 
         <section class="table-area">
+          <div id="mobileGameHud" class="mobile-game-hud" aria-label="ملخص المباراة">
+            <div class="mobile-hud-player opponent">
+              <span id="mobileOpponentAvatar" class="mobile-hud-avatar">😎</span>
+              <div class="mobile-hud-copy"><b id="mobileOpponentName">صاحبك</b><small id="mobileOpponentCount">7 قطع</small></div>
+              <strong id="mobileOpponentScore" class="mobile-hud-points">0</strong>
+            </div>
+            <div class="mobile-hud-center">
+              <b id="mobileRoundLabel">الجولة 1</b>
+              <small id="mobileTargetLabel">إلى 151</small>
+            </div>
+            <div class="mobile-hud-player me">
+              <strong id="mobileMeScore" class="mobile-hud-points">0</strong>
+              <div class="mobile-hud-copy"><b id="mobileMeName">أنت</b><small id="mobileMeCount">7 قطع</small></div>
+              <span id="mobileMeAvatar" class="mobile-hud-avatar">😎</span>
+            </div>
+          </div>
+
           <div id="opponentBar" class="player-bar opponent"></div>
 
           <div class="table card">
@@ -165,6 +182,10 @@
             <button id="voiceMuteBtn" class="icon-btn" type="button" aria-label="كتم الميكروفون">🎙️</button>
             <button id="voiceHangupBtn" class="icon-btn hangup" type="button" aria-label="إنهاء المكالمة">📞</button>
           </div>
+          <div class="mobile-utility-row">
+            <button id="mobileShareBtn" class="mobile-utility-btn" type="button">🔗 <span>مشاركة الكود</span></button>
+            <button id="mobileLeaveBtn" class="mobile-utility-btn danger" type="button">🚪 <span>مغادرة</span></button>
+          </div>
           <audio id="remoteAudio" autoplay playsinline></audio>
         </section>
 
@@ -195,6 +216,11 @@
       </div>
     </section>
   </main>
+
+  <footer class="site-credit">
+    <span>تصميم وبرمجة <strong>محمد حسين</strong></span>
+    <a href="https://iegy.net/" target="_blank" rel="noopener noreferrer">iegy.net</a>
+  </footer>
 
   <div id="sideModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
@@ -233,6 +259,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=4.0.0"></script>
+  <script type="module" src="./app.js?v=5.0.0"></script>
 </body>
 </html>

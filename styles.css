@@ -305,3 +305,104 @@ h1{font-size:clamp(36px,5vw,64px);line-height:1.15;margin:18px 0 14px;max-width:
 @media(max-width:620px){
   .game-actions{position:static!important;bottom:auto!important;z-index:auto!important;background:rgba(6,17,33,.55)!important}
 }
+
+
+/* ===== v5: mobile-first game HUD + one-screen play surface ===== */
+.site-credit{
+  width:min(1240px,calc(100% - 28px));margin:0 auto 22px;padding:12px 16px;text-align:center;
+  color:#7189a4;font-size:11px;border-top:1px solid rgba(91,151,199,.14)
+}
+.site-credit strong{color:#b8cbe0}.site-credit a{color:#6dcfff;text-decoration:none;font-weight:800;margin-inline-start:5px}.site-credit a:hover{text-decoration:underline}
+.mobile-game-hud,.mobile-utility-row{display:none}
+
+@media(max-width:620px){
+  body{background:#04101f}
+  .topbar{height:58px;padding:0 10px;background:rgba(4,15,29,.94)}
+  .brand{gap:7px}.brand img{width:36px;height:36px}.brand strong{font-size:14px}.brand span{display:none}
+  .top-actions{gap:6px}.top-actions .icon-btn{width:38px;height:38px;border-radius:12px}.badge{font-size:9px;padding:6px 9px}
+  .shell{width:100%!important;margin:6px auto 18px!important;padding:0 6px}
+  #gameView{margin:0}
+  #gameView .game-layout{display:flex!important;flex-direction:column!important;gap:6px!important}
+  #gameView .table-area{order:1!important;width:100%;min-width:0;overflow:visible!important}
+
+  /* Mobile HUD replaces the three bulky desktop cards. */
+  .mobile-game-hud{
+    display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:5px;
+    min-height:52px;margin:0 0 6px;padding:6px 7px;border:1px solid rgba(45,112,163,.46);border-radius:15px;
+    background:linear-gradient(180deg,rgba(10,31,55,.96),rgba(7,24,44,.96));box-shadow:0 10px 26px rgba(0,0,0,.2)
+  }
+  .mobile-hud-player{min-width:0;display:flex;align-items:center;gap:6px}.mobile-hud-player.me{justify-content:flex-end}
+  .mobile-hud-avatar{width:32px;height:32px;display:grid;place-items:center;border-radius:11px;background:#102c4b;font-size:18px;flex:0 0 32px}
+  .mobile-hud-copy{min-width:0}.mobile-hud-copy b{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px}.mobile-hud-copy small{display:block;color:#7893ad;font-size:8px;white-space:nowrap}
+  .mobile-hud-points{font-size:18px;line-height:1;color:#fff;min-width:20px;text-align:center}
+  .mobile-hud-center{text-align:center;padding:0 5px;border-inline:1px solid rgba(255,255,255,.06)}.mobile-hud-center b{display:block;color:#dbeeff;font-size:9px;white-space:nowrap}.mobile-hud-center small{display:block;color:#54dc99;font-size:8px;white-space:nowrap}
+  #gameView .player-bar,#gameView .score-panel{display:none!important}
+
+  /* The table is a controlled game viewport instead of an endlessly tall web card. */
+  #gameView .table{
+    height:clamp(340px,48svh,470px)!important;min-height:340px!important;max-height:470px!important;
+    padding:46px 7px 50px!important;border:5px solid #70401f!important;border-radius:18px!important;
+    overflow:hidden!important;box-shadow:inset 0 0 55px rgba(0,0,0,.2),0 12px 28px rgba(0,0,0,.24)!important
+  }
+  #gameView .table:after{inset:7px;border-radius:12px}
+  #gameView .turn-banner{top:8px;padding:6px 11px;font-size:9px;max-width:64%;overflow:hidden;text-overflow:ellipsis}
+  #gameView .stock{left:7px;bottom:7px;width:58px;padding:5px 4px;border-radius:12px;background:rgba(3,37,34,.82)}
+  #gameView .stock-stack{font-size:14px}#gameView .stock b{font-size:8px}#gameView .stock small{font-size:14px}
+  #gameView .board{width:100%!important;min-width:0!important;margin:0!important;overflow:hidden!important}
+  #gameView .board-piece{filter:drop-shadow(0 4px 4px rgba(0,0,0,.18))}
+  #gameView .board-piece .pip-grid{width:calc(var(--board-short) * .66)!important;height:calc(var(--board-short) * .66)!important}
+  #gameView .board-piece .pip{width:clamp(3px,calc(var(--board-short) * .12),5px)!important;height:clamp(3px,calc(var(--board-short) * .12),5px)!important}
+
+  /* Player rack: feels like a hand of tiles, stays compact, scrolls only when necessary. */
+  #gameView .hand{
+    position:relative;width:100%;min-height:92px;margin-top:6px;padding:12px 8px 8px;display:flex;align-items:flex-end;
+    justify-content:center;gap:4px;overflow-x:auto;overflow-y:hidden;border:1px solid rgba(43,105,153,.32);border-radius:16px;
+    background:linear-gradient(180deg,#0a2038 0,#071628 72%,#4e2b1b 73%,#6e3b20 82%,#071628 83%);scrollbar-width:none
+  }
+  #gameView .hand::-webkit-scrollbar{display:none}
+  #gameView .hand:before{content:"قطعك";position:absolute;top:4px;right:10px;color:#6f8ba8;font-size:8px;font-weight:800;pointer-events:none}
+  #gameView .hand .tile{width:43px;height:76px;flex:0 0 43px;border-radius:8px}
+  #gameView .hand .pip-grid{width:25px;height:25px}#gameView .hand .pip{width:4px;height:4px}
+  #gameView .hand .tile.playable{outline-width:2px;transform:translateY(-3px)}
+  #gameView .hand.many-tiles{justify-content:flex-start}
+
+  /* Primary actions are thumb-sized and always directly below the hand. */
+  #gameView .game-actions{position:static!important;margin:5px 0 0;padding:0!important;display:grid;grid-template-columns:1fr 1fr;gap:6px;background:none!important;backdrop-filter:none!important}
+  #gameView .game-actions .btn{min-height:42px!important;padding:8px 9px;border-radius:13px;font-size:10px}
+
+  /* Reactions become a lightweight quick-action rail, not another card. */
+  #gameView .reactions-panel{order:3!important;margin:0!important;padding:6px!important;border-radius:14px!important;background:rgba(8,27,48,.75)!important;box-shadow:none!important}
+  #gameView .reactions-panel h3,#gameView .reactions-panel .rules-note{display:none!important}
+  #gameView .reactions-panel .reactions{display:grid!important;grid-template-columns:repeat(6,1fr)!important;gap:4px!important}
+  #gameView .reactions-panel .reactions button{height:38px!important;min-width:0;border-radius:10px!important;font-size:18px!important;padding:0!important;background:#0b2846!important}
+
+  /* Communication controls are compact and inline. */
+  #gameView .social-dock{margin:5px 0 0!important;width:100%!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important}
+  #gameView .social-btn{width:100%;min-width:0!important;height:42px!important;border-radius:13px!important;padding:0 8px!important;box-shadow:none!important}
+  #gameView .social-btn span{font-size:17px}#gameView .social-btn b{font-size:9px}
+  #gameView .voice-active-bar{margin:5px 0 0!important;width:100%!important;border-radius:13px!important;padding:7px 8px!important;box-shadow:none!important}
+  #gameView .chat-preview{margin:5px 0 0;width:100%;font-size:9px;border-radius:10px}
+  #gameView .chat-panel{order:2!important;height:220px!important;margin:0!important;border-radius:15px!important;box-shadow:none!important}
+  #gameView .chat-head{padding:8px 10px}.chat-head b{font-size:11px}.chat-head small{font-size:8px}.chat-head .icon-btn{width:32px;height:32px}
+  #gameView .chat-messages{padding:8px!important;gap:6px}.chat-msg{font-size:10px!important}.chat-msg>div{padding:7px 9px!important}.chat-msg small{font-size:8px!important}
+  #gameView .chat-form{padding:7px!important;gap:5px!important}.chat-form input{height:40px!important;font-size:16px!important}.chat-form .btn{min-height:40px!important;padding:7px 10px!important;font-size:10px!important}
+
+  .mobile-utility-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:5px}
+  .mobile-utility-btn{height:36px;border:1px solid #254d70;border-radius:11px;background:#081c32;color:#9db5cc;font:700 9px "Cairo",sans-serif}
+  .mobile-utility-btn.danger{color:#ef9aa2;border-color:rgba(255,92,107,.24)}
+
+  .site-credit{width:calc(100% - 12px);margin:8px auto 14px;padding:10px 8px;font-size:9px}
+}
+
+@media(max-width:370px){
+  .mobile-game-hud{grid-template-columns:minmax(0,1fr) 56px minmax(0,1fr);padding-inline:5px}
+  .mobile-hud-avatar{width:29px;height:29px;flex-basis:29px;font-size:16px}.mobile-hud-copy b{max-width:58px;font-size:9px}.mobile-hud-points{font-size:16px}
+  #gameView .table{height:clamp(330px,46svh,420px)!important;min-height:330px!important}
+  #gameView .hand .tile{width:40px;height:72px;flex-basis:40px}
+}
+
+@media(max-width:820px) and (orientation:landscape){
+  .topbar{height:52px}.shell{padding-inline:8px!important}
+  #gameView .table{height:clamp(280px,62svh,390px)!important;min-height:280px!important}
+  .mobile-game-hud{min-height:46px}
+}
