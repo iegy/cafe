@@ -67,3 +67,9 @@ export const turnConfig = {
 - WebRTC يجرب الاتصال المباشر أولًا ثم يستخدم TURN تلقائيًا عند الحاجة بسبب CGNAT أو قيود شبكة المحمول.
 - يدعم UDP/TCP على المنفذ 80 وTURN/TLS على 443.
 - تنبيه: الموقع Static، لذلك TURN credential ظاهر في JavaScript للزائر. راقب الاستهلاك وغيّر الـcredential إذا ظهر استخدام غير معتاد.
+
+### v6.4 — Direct tile control
+- Drag a playable domino directly from the rack to either valid open end.
+- Magnetic snap target + floating tile preview + haptic drop feedback.
+- When a tile fits both ends, the old right/left chooser is no longer required: drag to the desired end, or tap the tile then tap the glowing end.
+- Horizontal drag remains available for manual hand ordering; upward drag plays the tile.

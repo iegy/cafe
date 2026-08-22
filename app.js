@@ -3,8 +3,8 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=6.3.1";
-import { turnConfig } from "./turn-config.js?v=6.3.1";
+import { firebaseConfig } from "./firebase-config.js?v=6.4.0";
+import { turnConfig } from "./turn-config.js?v=6.4.0";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -51,7 +51,8 @@ const state = {
   peer:null, localStream:null, remoteStream:null, currentCallId:null, incomingCall:null,
   voiceUnsub:null, voiceSignalReady:false, pendingIce:[], seenIce:new Set(), remoteDescriptionSet:false,
   voiceMuted:false, processingVoice:false, dbConnected:false, everConnected:false, installPrompt:null,
-  lastSavedMatchKey:null, lastMoveAt:0, roundRevealTimer:null, manualHandOrder:[], suppressTileClickUntil:0
+  lastSavedMatchKey:null, lastMoveAt:0, roundRevealTimer:null, manualHandOrder:[], suppressTileClickUntil:0,
+  dragPlayActive:false, dragTargetSide:null, dragGhost:null
 };
 
 function setView(name){
@@ -86,7 +87,7 @@ function vibrateMove(tile){
 function setTableTheme(theme){
   theme=theme==="wood"?"wood":"green";document.documentElement.dataset.tableTheme=theme;
   localStorage.setItem("domino_table_theme",theme);
-  if(els.tableThemeBtn){els.tableThemeBtn.textContent=theme==="wood"?"🪵":"🟢";els.tableThemeBtn.title=theme==="wood"?"الطاولة الخضراء":"الطاولة الخشبية";}
+  if(els.tableThemeBtn){els.tableThemeBtn.textContent="🎨";els.tableThemeBtn.title=theme==="wood"?"الطاولة الحالية: خشبي — اضغط للأخضر":"الطاولة الحالية: أخضر — اضغط للخشبي";els.tableThemeBtn.setAttribute("aria-label","تغيير شكل الطاولة");}
 }
 function cycleTableTheme(){setTableTheme((document.documentElement.dataset.tableTheme||"green")==="green"?"wood":"green");}
 function getHistory(){try{return JSON.parse(localStorage.getItem("domino_match_history")||"[]").filter(Boolean).slice(0,10);}catch{return []}}
@@ -111,9 +112,101 @@ function sortHandTiles(hand){
 function enableManualTileDrag(el,tile){
   el.dataset.tile=tile;let startX=0,startY=0,dragging=false;
   el.addEventListener("pointerdown",e=>{if(els.handSortSelect?.value!=="manual")return;startX=e.clientX;startY=e.clientY;dragging=false;el.setPointerCapture?.(e.pointerId);});
-  el.addEventListener("pointermove",e=>{if(els.handSortSelect?.value!=="manual"||!el.hasPointerCapture?.(e.pointerId))return;if(Math.hypot(e.clientX-startX,e.clientY-startY)>10){dragging=true;el.classList.add("hand-dragging");e.preventDefault();}});
+  el.addEventListener("pointermove",e=>{
+    if(els.handSortSelect?.value!=="manual"||!el.hasPointerCapture?.(e.pointerId)||state.dragPlayActive)return;
+    const dx=e.clientX-startX,dy=e.clientY-startY;
+    // Manual rack ordering is intentionally horizontal. Upward/vertical motion is
+    // reserved for dragging a playable tile onto the table.
+    if(Math.abs(dx)>11 && Math.abs(dx)>Math.abs(dy)*1.15){dragging=true;el.classList.add("hand-dragging");e.preventDefault();}
+  });
   el.addEventListener("pointerup",e=>{if(!dragging){try{el.releasePointerCapture?.(e.pointerId)}catch{}return;}const under=document.elementFromPoint(e.clientX,e.clientY)?.closest?.("#hand .tile");const target=under?.dataset?.tile;el.classList.remove("hand-dragging");try{el.releasePointerCapture?.(e.pointerId)}catch{};if(target&&target!==tile){const order=sortHandTiles(normalizeTiles(state.room?.game?.hands?.[state.uid]));const from=order.indexOf(tile),to=order.indexOf(target);if(from>=0&&to>=0){order.splice(from,1);order.splice(to,0,tile);state.manualHandOrder=order;renderHand(normalizeTiles(state.room?.game?.hands?.[state.uid]),state.room?.game?.board,state.room?.status==="playing"&&state.room?.game?.turn===state.uid);}}state.suppressTileClickUntil=Date.now()+350;e.preventDefault();});
 }
+
+function clearDropTargets(){
+  els.board?.querySelectorAll(".board-drop-zone").forEach(z=>z.classList.remove("is-valid","drag-over","tap-choice"));
+  els.hand?.querySelectorAll(".tile.selected-for-play").forEach(t=>t.classList.remove("selected-for-play"));
+}
+function refreshDropTargets(tile,board,{tapChoice=false}={}){
+  clearDropTargets();
+  if(!tile)return;
+  els.board?.querySelectorAll(".board-drop-zone").forEach(z=>{
+    const side=z.dataset.logicalSide||"right";
+    const valid=!normalizeTiles(board).length || canPlaySide(tile,board,side);
+    z.classList.toggle("is-valid",valid);
+    z.classList.toggle("tap-choice",valid&&tapChoice);
+  });
+}
+function dropZoneCenter(zone){const r=zone.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,rect:r};}
+function nearestDropZone(tile,board,x,y){
+  const zones=[...els.board.querySelectorAll(".board-drop-zone")].filter(z=>!normalizeTiles(board).length||canPlaySide(tile,board,z.dataset.logicalSide||"right"));
+  if(!zones.length)return null;
+  if(!normalizeTiles(board).length){
+    const br=els.board.getBoundingClientRect();
+    if(x>=br.left&&x<=br.right&&y>=br.top&&y<=br.bottom)return zones[0];
+  }
+  let best=null,bestD=Infinity;
+  for(const z of zones){const c=dropZoneCenter(z),d=Math.hypot(x-c.x,y-c.y);if(d<bestD){best=z;bestD=d;}}
+  const mobile=window.matchMedia("(max-width: 620px)").matches;
+  return bestD<=(mobile?92:108)?best:null;
+}
+function makePlayDragGhost(tile){
+  const ghost=tileEl(tile,false,true);ghost.classList.add("drag-play-ghost");document.body.appendChild(ghost);return ghost;
+}
+function positionPlayGhost(ghost,x,y,zone=null,tile=""){
+  let gx=x,gy=y;
+  ghost.classList.remove("snapped","snap-horizontal");
+  if(zone){const c=dropZoneCenter(zone);gx=c.x;gy=c.y;ghost.classList.add("snapped");
+    const visual=zone.dataset.visualSide||"right",[a,b]=String(tile).split("-");
+    if(a!==b&&(visual==="left"||visual==="right"))ghost.classList.add("snap-horizontal");
+  }
+  ghost.style.left=`${gx}px`;ghost.style.top=`${gy}px`;
+}
+function finishPlayDragVisual(ghost,success=false){
+  if(!ghost)return;
+  ghost.classList.add(success?"drop-success":"drop-cancel");
+  setTimeout(()=>ghost.remove(),success?150:180);
+}
+function enableGameTileDrag(el,tile,index,board,playable){
+  if(!playable)return;
+  el.classList.add("drag-playable");
+  let sx=0,sy=0,mode=false,ghost=null,target=null,pid=null;
+  const move=e=>{
+    if(pid!==e.pointerId)return;
+    const dx=e.clientX-sx,dy=e.clientY-sy;
+    if(!mode){
+      // A deliberate upward/vertical lift starts table play. Horizontal motion
+      // remains available for hand scrolling/manual ordering.
+      if(Math.hypot(dx,dy)<9)return;
+      if(!(dy<-5 || Math.abs(dy)>Math.abs(dx)*.72))return;
+      mode=true;state.dragPlayActive=true;state.suppressTileClickUntil=Date.now()+500;
+      ghost=makePlayDragGhost(tile);state.dragGhost=ghost;el.classList.add("play-drag-source");document.body.classList.add("domino-dragging");
+      refreshDropTargets(tile,board);
+      try{navigator.vibrate?.(12)}catch{}
+    }
+    e.preventDefault();
+    target=nearestDropZone(tile,board,e.clientX,e.clientY);
+    els.board.querySelectorAll(".board-drop-zone").forEach(z=>z.classList.toggle("drag-over",z===target));
+    state.dragTargetSide=target?.dataset.logicalSide||null;
+    positionPlayGhost(ghost,e.clientX,e.clientY,target,tile);
+  };
+  const end=e=>{
+    if(pid!==e.pointerId)return;
+    window.removeEventListener("pointermove",move,{capture:true});window.removeEventListener("pointerup",end,{capture:true});window.removeEventListener("pointercancel",cancel,{capture:true});
+    try{el.releasePointerCapture?.(e.pointerId)}catch{}
+    if(!mode)return;
+    e.preventDefault();el.classList.remove("play-drag-source");document.body.classList.remove("domino-dragging");state.dragPlayActive=false;state.dragGhost=null;
+    const side=target?.dataset.logicalSide||null;clearDropTargets();state.dragTargetSide=null;
+    if(side){finishPlayDragVisual(ghost,true);state.pendingTile=null;try{navigator.vibrate?.([14,18,18])}catch{};playTile(index,tile,side);}
+    else{finishPlayDragVisual(ghost,false);toast("سيب القطعة عند الطرف المضيء.");}
+  };
+  const cancel=e=>{target=null;end(e)};
+  el.addEventListener("pointerdown",e=>{
+    if(state.dragPlayActive)return;pid=e.pointerId;sx=e.clientX;sy=e.clientY;mode=false;target=null;
+    try{el.setPointerCapture?.(e.pointerId)}catch{}
+    window.addEventListener("pointermove",move,{capture:true,passive:false});window.addEventListener("pointerup",end,{capture:true,passive:false});window.addEventListener("pointercancel",cancel,{capture:true,passive:false});
+  });
+}
+
 function chooseStarterByRules(hands,room,randomUid=null,previousWinnerUid=null){
   const rule=room?.settings?.starterRule||"winner";
   if(rule==="winner" && previousWinnerUid && previousWinnerUid!=="draw" && [room.hostUid,room.guestUid].includes(previousWinnerUid)) return previousWinnerUid;
@@ -135,7 +228,7 @@ const soundBuffers={};
 async function preloadSounds(){
   try{
     const ac=audioContext();
-    for(const [kind,url] of Object.entries({play:"./assets/domino-place-real.wav?v=6.3.1",double:"./assets/domino-double-real.wav?v=6.3.1",draw:"./assets/domino-draw-real.wav?v=6.3.1",win:"./assets/domino-win.wav?v=6.3.1"})){
+    for(const [kind,url] of Object.entries({play:"./assets/domino-place-real.wav?v=6.4.0",double:"./assets/domino-double-real.wav?v=6.4.0",draw:"./assets/domino-draw-real.wav?v=6.4.0",win:"./assets/domino-win.wav?v=6.4.0"})){
       if(soundBuffers[kind]) continue;
       const res=await fetch(url); if(!res.ok) continue;
       soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
@@ -387,6 +480,11 @@ function renderGame(room){
   state.lastBoardRound=g.round; state.lastBoardCount=boardCount;
   renderBoard(g.board,{myTurn,lastMove:g.lastMove});
   renderHand(myHand,g.board,myTurn);
+  if(myTurn&&state.pendingTile&&myHand.includes(state.pendingTile.tile)&&canPlay(state.pendingTile.tile,g.board))refreshDropTargets(state.pendingTile.tile,g.board,{tapChoice:true});
+  else if(!myTurn||!state.pendingTile||!myHand.includes(state.pendingTile.tile)){state.pendingTile=null;clearDropTargets();}
+  if(myTurn&&myHand.some(t=>canPlay(t,g.board))&&localStorage.getItem("domino_drag_coach_v64")!=="1"){
+    localStorage.setItem("domino_drag_coach_v64","1");setTimeout(()=>toast("✋ اسحب القطعة للطرف المضيء — من غير اختيار يمين أو شمال."),500);
+  }
   els.stockCount.textContent=normalizeTiles(g.stock).length;
   const hasMove=myHand.some(t=>canPlay(t,g.board));
   els.drawBtn.disabled=!myTurn || hasMove || normalizeTiles(g.stock).length===0;
@@ -481,7 +579,9 @@ function renderBoard(boardRaw,opts={}){
   if(!board.length){
     const emptyHeight=mobile?Math.max(220,(table?.clientHeight||360)-102):(width<470?250:300);
     els.board.style.height=`${emptyHeight}px`;
-    const e=document.createElement("div");e.className="board-empty";e.textContent="ابدأ أول قطعة";els.board.appendChild(e);return;
+    const e=document.createElement("div");e.className="board-empty";e.textContent="اسحب أول قطعة إلى الطاولة";els.board.appendChild(e);
+    if(opts.myTurn){const z=document.createElement("div");z.className="board-drop-zone empty-drop-zone";z.dataset.logicalSide="right";z.dataset.visualSide="center";z.setAttribute("aria-label","ضع القطعة هنا");els.board.appendChild(z);}
+    return;
   }
 
   let layout;
@@ -523,6 +623,17 @@ function renderBoard(boardRaw,opts={}){
     const lastIdx=opts.lastMove?.side==="left"?0:layout.placements.length-1;if(opts.lastMove&&idx===lastIdx)el.classList.add("last-played");
     el.style.left=`${p.left}px`;el.style.top=`${p.top}px`;el.style.zIndex=String(p.z);els.board.appendChild(el);
   });
+  if(opts.myTurn&&layout.placements.length){
+    const addZone=(p,logicalSide,visualSide)=>{
+      const zone=document.createElement("div");zone.className="board-drop-zone";zone.dataset.logicalSide=logicalSide;zone.dataset.visualSide=visualSide;zone.setAttribute("role","button");zone.setAttribute("aria-label",logicalSide==="left"?"طرف السلسلة الأول":"طرف السلسلة الثاني");
+      const w=p.orientation==="horizontal"?layout.long:layout.short,h=p.orientation==="horizontal"?layout.short:layout.long,cx=p.left+w/2,cy=p.top+h/2;
+      let x=cx,y=cy;const reach=Math.max(20,Math.round(layout.short*.58));
+      if(visualSide==="left")x=p.left-reach*.15;else if(visualSide==="right")x=p.left+w+reach*.15;else if(visualSide==="top")y=p.top-reach*.15;else if(visualSide==="bottom")y=p.top+h+reach*.15;
+      zone.style.left=`${x}px`;zone.style.top=`${y}px`;zone.style.setProperty("--drop-zone-size",`${Math.max(54,Math.round(layout.short*1.65))}px`);els.board.appendChild(zone);
+    };
+    const first=layout.placements[0],last=layout.placements[layout.placements.length-1];
+    addZone(first,"left",first.entrySide||"left");addZone(last,"right",last.exitSide||"right");
+  }
   requestAnimationFrame(()=>{const el=els.board.querySelector(".last-played");if(!el)return;const r=el.getBoundingClientRect(),tr=table?.getBoundingClientRect();if(tr&&(r.top<tr.top||r.bottom>tr.bottom||r.left<tr.left||r.right>tr.right))el.scrollIntoView({behavior:"smooth",block:"nearest",inline:"nearest"});});
 }
 function renderHand(hand,board,myTurn){
@@ -530,8 +641,11 @@ function renderHand(hand,board,myTurn){
   els.hand.style.setProperty("--hand-count",String(Math.max(1,visible.length)));
   els.hand.classList.toggle("many-tiles",visible.length>8);
   visible.forEach((t,i)=>{
-    const playable=myTurn&&canPlay(t,board), el=tileEl(t,false,playable); el.classList.add("in-hand");enableManualTileDrag(el,t);
-    el.addEventListener("click",()=>{if(Date.now()<state.suppressTileClickUntil)return;selectTile(i,t);}); els.hand.appendChild(el);
+    const playable=myTurn&&canPlay(t,board), el=tileEl(t,false,playable);el.classList.add("in-hand");
+    if(els.handSortSelect?.value==="manual")el.classList.add("manual-order-mode");
+    if(state.pendingTile?.tile===t)el.classList.add("selected-for-play");
+    enableManualTileDrag(el,t);enableGameTileDrag(el,t,i,board,playable);
+    el.addEventListener("click",()=>{if(Date.now()<state.suppressTileClickUntil)return;selectTile(i,t);});els.hand.appendChild(el);
   });
 }
 function reverseTileForDisplay(tile){
@@ -559,8 +673,11 @@ function selectTile(index,tile){
   const board=normalizeTiles(g.board);
   if(!board.length){playTile(index,tile,"right");return;}
   const left=canPlaySide(tile,board,"left"),right=canPlaySide(tile,board,"right");
-  if(left&&right){state.pendingTile={index,tile};els.sideModal.classList.remove("hidden");}
-  else playTile(index,tile,left?"left":"right");
+  if(left&&right){
+    state.pendingTile={index,tile};refreshDropTargets(tile,board,{tapChoice:true});
+    els.hand.querySelectorAll(".tile").forEach(x=>x.classList.toggle("selected-for-play",x.dataset.tile===tile));
+    toast("اسحب القطعة، أو اضغط على الطرف المضيء.");
+  }else playTile(index,tile,left?"left":"right");
 }
 
 function applyRoundOutcome(room,winnerUid,points,reason){
@@ -578,7 +695,7 @@ function applyRoundOutcome(room,winnerUid,points,reason){
 }
 
 async function playTile(index,tile,side){
-  els.sideModal.classList.add("hidden");
+  els.sideModal.classList.add("hidden");clearDropTargets();
   const rr=roomRef();
   const result=await runTransaction(rr,room=>{
     if(!room||room.status!=="playing"||room.game?.turn!==state.uid)return;
@@ -881,7 +998,7 @@ async function copyCode(){await navigator.clipboard.writeText(state.roomCode);to
 function leaveLocal(){
   if(state.roomUnsub){state.roomUnsub();state.roomUnsub=null;}
   cleanupVoice();
-  state.roomCode=null;state.room=null;state.chatOpen=false;state.lastChatCount=0;state.lastChatAt=0;state.lastBoardCount=null;state.lastBoardRound=null;
+  state.roomCode=null;state.room=null;state.chatOpen=false;state.pendingTile=null;clearDropTargets();state.lastChatCount=0;state.lastChatAt=0;state.lastBoardCount=null;state.lastBoardRound=null;
   els.chatPanel.classList.add("hidden");els.gameLayout?.classList.remove("chat-open");els.chatPreview.classList.add("hidden");els.socialDock.classList.add("hidden");els.chatUnread.classList.add("hidden");
   localStorage.removeItem("domino_room");setView("home");
 }
@@ -909,6 +1026,7 @@ if(els.mobileShareBtn)els.mobileShareBtn.addEventListener("click",shareRoom);
 els.leaveLobbyBtn.addEventListener("click",leaveRoom);els.leaveGameBtn.addEventListener("click",leaveRoom);
 if(els.mobileLeaveBtn)els.mobileLeaveBtn.addEventListener("click",leaveRoom);
 els.drawBtn.addEventListener("click",drawTile);els.passBtn.addEventListener("click",passTurn);
+els.board.addEventListener("click",e=>{const z=e.target.closest?.(".board-drop-zone.is-valid");if(!z||!state.pendingTile)return;const p=state.pendingTile,side=z.dataset.logicalSide||"right";if(canPlaySide(p.tile,state.room?.game?.board,side)){state.pendingTile=null;playTile(p.index,p.tile,side);}});
 els.playLeftBtn.addEventListener("click",()=>state.pendingTile&&playTile(state.pendingTile.index,state.pendingTile.tile,"left"));
 els.playRightBtn.addEventListener("click",()=>state.pendingTile&&playTile(state.pendingTile.index,state.pendingTile.tile,"right"));
 els.cancelSideBtn.addEventListener("click",()=>{state.pendingTile=null;els.sideModal.classList.add("hidden");});
@@ -946,7 +1064,7 @@ window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room
   if(els.handSortSelect)els.handSortSelect.value=localStorage.getItem("domino_hand_sort")||"smart";
   setTableTheme(localStorage.getItem("domino_table_theme")||"green");renderHistory();
   els.targetWrap.classList.toggle("hidden",els.matchMode.value==="single");
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=6.3.1").catch(console.warn);
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=6.4.0").catch(console.warn);
   const n=localStorage.getItem("domino_name");if(n)els.playerName.value=n;
   const a=localStorage.getItem("domino_avatar")||"😎";state.selectedAvatar=a;
   [...els.avatarPicker.querySelectorAll("button")].forEach(x=>x.classList.toggle("selected",x.dataset.avatar===a));

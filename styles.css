@@ -563,3 +563,45 @@ html[data-table-theme="wood"] .stock{background:rgba(17,12,10,.72)!important}
 @media(hover:hover) and (pointer:fine){
   .tile.in-hand:hover{transform:translateY(-8px) rotateX(2deg)}
 }
+
+/* =========================================================
+   v6.4 — direct manipulation: drag, magnetic snap & drop
+   ========================================================= */
+.board-drop-zone{
+  --drop-zone-size:64px;
+  position:absolute;width:var(--drop-zone-size);height:var(--drop-zone-size);
+  transform:translate(-50%,-50%) scale(.72);border-radius:50%;z-index:80;
+  border:2px dashed transparent;background:transparent;opacity:0;pointer-events:none;
+  display:grid;place-items:center;transition:opacity .15s ease,transform .15s ease,background .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+.board-drop-zone:before{content:"";width:16px;height:16px;border-radius:50%;background:rgba(96,255,173,.0);transition:.15s ease}
+.board-drop-zone.is-valid{opacity:.9;transform:translate(-50%,-50%) scale(1);border-color:rgba(96,255,173,.7);background:rgba(42,224,135,.10);box-shadow:0 0 0 7px rgba(42,224,135,.045),0 0 24px rgba(42,224,135,.20);pointer-events:auto;cursor:pointer}
+.board-drop-zone.is-valid:before{background:#60ffad;box-shadow:0 0 16px rgba(96,255,173,.95)}
+.board-drop-zone.tap-choice:after{content:"ضع هنا";position:absolute;top:calc(100% + 4px);white-space:nowrap;color:#baffda;background:rgba(2,25,34,.88);border:1px solid rgba(96,255,173,.28);border-radius:999px;padding:3px 7px;font-size:8px;font-weight:900;pointer-events:none}
+.board-drop-zone.drag-over{transform:translate(-50%,-50%) scale(1.2);border-style:solid;border-color:#f5d66d;background:rgba(245,214,109,.18);box-shadow:0 0 0 9px rgba(245,214,109,.06),0 0 34px rgba(245,214,109,.42)}
+.board-drop-zone.drag-over:before{background:#ffe47e;box-shadow:0 0 20px #ffe47e}
+.empty-drop-zone{left:50%!important;top:50%!important;--drop-zone-size:118px}
+.tile.drag-playable{touch-action:pan-x;cursor:grab}
+.tile.drag-playable:active{cursor:grabbing}
+.tile.play-drag-source{opacity:.28!important;transform:translateY(-2px) scale(.96)!important;filter:saturate(.65)}
+.tile.selected-for-play{outline:3px solid #f5d66d!important;box-shadow:0 0 0 5px rgba(245,214,109,.09),0 0 25px rgba(245,214,109,.4)!important;transform:translateY(-7px)!important}
+.drag-play-ghost{
+  position:fixed!important;left:0;top:0;z-index:10000!important;margin:0!important;pointer-events:none!important;
+  width:52px!important;height:96px!important;transform:translate(-50%,-62%) rotate(-3deg) scale(1.06)!important;
+  opacity:.96;filter:drop-shadow(0 18px 18px rgba(0,0,0,.38));transition:left .07s linear,top .07s linear,width .12s ease,height .12s ease,transform .12s ease,opacity .16s ease;
+}
+.drag-play-ghost.snapped{transform:translate(-50%,-50%) rotate(0deg) scale(.92)!important;filter:drop-shadow(0 7px 9px rgba(0,0,0,.3)) drop-shadow(0 0 10px rgba(245,214,109,.25))}
+.drag-play-ghost.snap-horizontal{width:96px!important;height:52px!important;grid-template-rows:none!important;grid-template-columns:1fr 1fr!important}
+.drag-play-ghost.snap-horizontal .half{border-bottom:0!important;border-left:1.5px solid #877f73}.drag-play-ghost.snap-horizontal .half:last-child{border-left:0!important}
+.drag-play-ghost.drop-success{opacity:0;transform:translate(-50%,-50%) scale(.72)!important}
+.drag-play-ghost.drop-cancel{opacity:0;transform:translate(-50%,-45%) scale(.88)!important}
+body.domino-dragging{user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+body.domino-dragging #hand{overflow:hidden}
+@media(max-width:620px){
+  .board-drop-zone{--drop-zone-size:58px}.empty-drop-zone{--drop-zone-size:105px}
+  .drag-play-ghost{width:46px!important;height:82px!important}.drag-play-ghost.snap-horizontal{width:82px!important;height:46px!important}
+  .tile.drag-playable{touch-action:pan-x}
+  .board-drop-zone.tap-choice:after{font-size:7px;padding:2px 6px}
+}
+@media(prefers-reduced-motion:reduce){.drag-play-ghost,.board-drop-zone{transition:none!important}}
+#hand .tile.manual-order-mode{touch-action:none}
