@@ -3,7 +3,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=6.0.0";
+import { firebaseConfig } from "./firebase-config.js?v=6.2.0";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -39,6 +39,7 @@ const els = {
   starterRule:$("starterRule"), blockedScoring:$("blockedScoring"), handSortSelect:$("handSortSelect"),
   historyPanel:$("historyPanel"), historyList:$("historyList"), clearHistoryBtn:$("clearHistoryBtn"),
   installAppBtn:$("installAppBtn"), tableThemeBtn:$("tableThemeBtn"), reconnectBanner:$("reconnectBanner"),
+  faithReminderToast:$("faithReminderToast"), faithReminderCloseBtn:$("faithReminderCloseBtn"),
   roundScoreline:$("roundScoreline"), roundProgress:$("roundProgress"), matchStats:$("matchStats")
 };
 
@@ -58,6 +59,25 @@ function setView(name){
 function toast(msg){
   els.toast.textContent=msg; els.toast.classList.remove("hidden");
   clearTimeout(toast.t); toast.t=setTimeout(()=>els.toast.classList.add("hidden"),2200);
+}
+function hideFaithReminder(){
+  if(!els.faithReminderToast)return;
+  els.faithReminderToast.classList.add("hidden");
+  els.faithReminderToast.classList.remove("reminder-enter");
+  clearTimeout(hideFaithReminder.t);
+}
+function maybeShowFaithReminder(room){
+  if(!els.faithReminderToast || !room?.game || room.status!=="playing" || Number(room.game.round||0)!==1)return;
+  const startedAt=Number(room.game.startedAt||0);if(!startedAt||!state.roomCode)return;
+  const key=`domino_faith_reminder_${state.roomCode}_${startedAt}`;
+  if(localStorage.getItem(key)==="1")return;
+  localStorage.setItem(key,"1");
+  els.faithReminderToast.classList.remove("hidden");
+  els.faithReminderToast.classList.remove("reminder-enter");
+  void els.faithReminderToast.offsetWidth;
+  els.faithReminderToast.classList.add("reminder-enter");
+  clearTimeout(hideFaithReminder.t);
+  hideFaithReminder.t=setTimeout(hideFaithReminder,5200);
 }
 function vibrateMove(tile){
   try{if(!navigator.vibrate)return;const [a,b]=String(tile||"").split("-");navigator.vibrate(a===b?[24,28,24]:22);}catch{}
@@ -110,7 +130,7 @@ const soundBuffers={};
 async function preloadSounds(){
   try{
     const ac=audioContext();
-    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=6.0.0",draw:"./assets/domino-draw.wav?v=6.0.0",win:"./assets/domino-win.wav?v=6.0.0"})){
+    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=6.2.0",draw:"./assets/domino-draw.wav?v=6.2.0",win:"./assets/domino-win.wav?v=6.2.0"})){
       if(soundBuffers[kind]) continue;
       const res=await fetch(url); if(!res.ok) continue;
       soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
@@ -372,6 +392,7 @@ function renderGame(room){
   renderChat(room);
   els.socialDock.classList.remove("hidden");
   updateVoiceUi();
+  maybeShowFaithReminder(room);
   if(room.status==="roundOver"||room.status==="matchOver") showRoundResult(room);
   else { els.roundModal.classList.add("hidden"); state.roundModalShownFor=null; }
 }
@@ -421,12 +442,21 @@ function planBoardLayout(board,width,long){
       const dbl=isDouble(tile),pathExtent=extent(tile),orientation=dbl?"vertical":"horizontal";
       const cx=x+segment.dir*pathExtent/2,cy=y;
       const w=orientation==="horizontal"?long:short,h=orientation==="horizontal"?short:long;
-      placements.push({tile,orientation,left:cx-w/2,top:cy-h/2,z:10+sequenceIndex++});
+      placements.push({
+        tile,orientation,left:cx-w/2,top:cy-h/2,z:10+sequenceIndex++,
+        dir:segment.dir,
+        reverseVisual:segment.dir<0 && !dbl,
+        entrySide:segment.dir>0?"left":"right",
+        exitSide:segment.dir>0?"right":"left"
+      });
       maxBottom=Math.max(maxBottom,cy+h/2);x+=segment.dir*(pathExtent+gap);
     }
     if(segment.turn){
       const top=y+rowHalf+gap,cx=segment.turnCx,cy=top+long/2;
-      placements.push({tile:segment.turn,orientation:"vertical",left:cx-short/2,top,z:10+sequenceIndex++,turn:true});
+      placements.push({
+        tile:segment.turn,orientation:"vertical",left:cx-short/2,top,z:10+sequenceIndex++,turn:true,
+        dir:0,reverseVisual:false,entrySide:"top",exitSide:"bottom"
+      });
       maxBottom=Math.max(maxBottom,top+long);
       if(segmentIndex+1<segments.length){
         const nextHalf=segments[segmentIndex+1].row.some(isDouble)?long/2:short/2;
@@ -474,9 +504,17 @@ function renderBoard(boardRaw,opts={}){
   els.board.style.setProperty("--board-long",`${layout.long}px`);
   els.board.style.setProperty("--board-short",`${layout.short}px`);
   layout.placements.forEach((p,idx)=>{
-    const el=tileEl(p.tile,p.orientation,false);el.classList.add("board-piece");if(p.turn)el.classList.add("board-turn");
-    if(opts.myTurn&&(idx===0||idx===layout.placements.length-1))el.classList.add("open-end");
-    if(idx===0)el.classList.add("left-end");if(idx===layout.placements.length-1)el.classList.add("right-end");
+    // The board array is stored in logical chain order. When a snake row runs
+    // right-to-left, the visual halves must be reversed as well or adjacent
+    // values look disconnected even though the Firebase state is correct.
+    const displayTile=p.reverseVisual?reverseTileForDisplay(p.tile):p.tile;
+    const el=tileEl(displayTile,p.orientation,false);el.classList.add("board-piece");if(p.turn)el.classList.add("board-turn");
+    el.dataset.chainTile=p.tile;el.dataset.chainDir=String(p.dir||0);
+    if(opts.myTurn&&(idx===0||idx===layout.placements.length-1)){
+      el.classList.add("open-end");
+      const side=idx===0?p.entrySide:p.exitSide;
+      el.classList.add(`open-${side}`);
+    }
     const lastIdx=opts.lastMove?.side==="left"?0:layout.placements.length-1;if(opts.lastMove&&idx===lastIdx)el.classList.add("last-played");
     el.style.left=`${p.left}px`;el.style.top=`${p.top}px`;el.style.zIndex=String(p.z);els.board.appendChild(el);
   });
@@ -491,6 +529,11 @@ function renderHand(hand,board,myTurn){
     el.addEventListener("click",()=>{if(Date.now()<state.suppressTileClickUntil)return;selectTile(i,t);}); els.hand.appendChild(el);
   });
 }
+function reverseTileForDisplay(tile){
+  const [a,b]=String(tile).split("-");
+  return `${b}-${a}`;
+}
+
 function tileEl(tile,orientation=false,playable=false){
   const [a,b]=tile.split("-").map(Number); const isDouble=a===b;
   const horizontal=orientation===true||orientation==="horizontal";
@@ -861,6 +904,7 @@ els.voiceMuteBtn.addEventListener("click",toggleVoiceMute);
 els.voiceHangupBtn.addEventListener("click",()=>hangupVoice(true));
 els.handSortSelect?.addEventListener("change",()=>{localStorage.setItem("domino_hand_sort",els.handSortSelect.value);if(els.handSortSelect.value==="manual")state.manualHandOrder=normalizeTiles(state.room?.game?.hands?.[state.uid]);if(state.room?.game)renderHand(normalizeTiles(state.room.game.hands?.[state.uid]),state.room.game.board,state.room.status==="playing"&&state.room.game.turn===state.uid);});
 els.tableThemeBtn?.addEventListener("click",cycleTableTheme);
+els.faithReminderCloseBtn?.addEventListener("click",hideFaithReminder);
 els.clearHistoryBtn?.addEventListener("click",()=>{localStorage.removeItem("domino_match_history");renderHistory();toast("تم مسح سجل المباريات.");});
 els.installAppBtn?.addEventListener("click",async()=>{if(!state.installPrompt)return;state.installPrompt.prompt();try{await state.installPrompt.userChoice;}catch{}state.installPrompt=null;els.installAppBtn.classList.add("hidden");});
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.installPrompt=e;if(!window.matchMedia("(display-mode: standalone)").matches)els.installAppBtn?.classList.remove("hidden");});
@@ -876,7 +920,7 @@ window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room
   if(els.handSortSelect)els.handSortSelect.value=localStorage.getItem("domino_hand_sort")||"smart";
   setTableTheme(localStorage.getItem("domino_table_theme")||"green");renderHistory();
   els.targetWrap.classList.toggle("hidden",els.matchMode.value==="single");
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=6.0.0").catch(console.warn);
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=6.2.0").catch(console.warn);
   const n=localStorage.getItem("domino_name");if(n)els.playerName.value=n;
   const a=localStorage.getItem("domino_avatar")||"😎";state.selectedAvatar=a;
   [...els.avatarPicker.querySelectorAll("button")].forEach(x=>x.classList.toggle("selected",x.dataset.avatar===a));

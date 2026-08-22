@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#081427" />
   <meta name="description" content="دومنو الصحبة — لعبة دومينو خاصة لشخصين عبر الويب." />
   <title>دومنو الصحبة</title>
-  <link rel="icon" href="./logo.svg?v=6.0.0" type="image/svg+xml" />
-  <link rel="manifest" href="./manifest.webmanifest?v=6.0.0" />
+  <link rel="icon" href="./logo.svg?v=6.2.0" type="image/svg+xml" />
+  <link rel="manifest" href="./manifest.webmanifest?v=6.2.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=6.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=6.2.0" />
 </head>
 <body>
   <div class="app-bg"></div>
@@ -30,6 +30,11 @@
   </header>
   <div id="reconnectBanner" class="reconnect-banner hidden" role="status" aria-live="polite">
     <span class="reconnect-spinner"></span> جاري إعادة الاتصال بالمباراة…
+  </div>
+  <div id="faithReminderToast" class="faith-reminder-toast hidden" role="status" aria-live="polite">
+    <span class="faith-reminder-icon">🤍</span>
+    <p>اللعب للمتعة، فلا تنسَ ذكر الله وأداء الفرائض في أوقاتها.</p>
+    <button id="faithReminderCloseBtn" type="button" aria-label="إغلاق التذكير">✕</button>
   </div>
 
   <main class="shell">
@@ -259,8 +264,11 @@
   </main>
 
   <footer class="site-credit">
-    <span>تصميم وبرمجة <strong>محمد حسين</strong></span>
-    <a href="https://iegy.net/" target="_blank" rel="noopener noreferrer">iegy.net</a>
+    <p class="site-faith-reminder">🤍 اللعب للمتعة، فلا تنسَ ذكر الله وأداء الفرائض في أوقاتها.</p>
+    <div class="site-credit-line">
+      <span>تصميم وبرمجة <strong>محمد حسين</strong></span>
+      <a href="https://iegy.net/" target="_blank" rel="noopener noreferrer">iegy.net</a>
+    </div>
   </footer>
 
   <div id="sideModal" class="modal hidden" role="dialog" aria-modal="true">
@@ -303,6 +311,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=6.0.0"></script>
+  <script type="module" src="./app.js?v=6.2.0"></script>
 </body>
 </html>

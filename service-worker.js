@@ -1,8 +1,8 @@
-const CACHE = "domino-alsohba-v6";
+const CACHE = "domino-alsohba-v6-2";
 const CORE = [
-  "./", "./index.html", "./styles.css?v=6.0.0", "./app.js?v=6.0.0", "./firebase-config.js?v=6.0.0",
-  "./logo.svg", "./manifest.webmanifest", "./assets/domino-hit.wav?v=6.0.0", "./assets/domino-draw.wav?v=6.0.0",
-  "./assets/domino-win.wav?v=6.0.0", "./icons/icon-192.png", "./icons/icon-512.png"
+  "./", "./index.html", "./styles.css?v=6.2.0", "./app.js?v=6.2.0", "./firebase-config.js?v=6.2.0",
+  "./logo.svg", "./manifest.webmanifest", "./assets/domino-hit.wav?v=6.2.0", "./assets/domino-draw.wav?v=6.2.0",
+  "./assets/domino-win.wav?v=6.2.0", "./icons/icon-192.png", "./icons/icon-512.png"
 ];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).catch(() => {}));

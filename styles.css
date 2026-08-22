@@ -466,3 +466,42 @@ html[data-table-theme="wood"] .stock{background:rgba(17,12,10,.72)!important}
 #hand .tile.hand-dragging{opacity:.72;transform:translateY(-10px) scale(1.04)!important;outline:2px dashed #ffcf55!important;z-index:5}
 #hand .tile[data-tile]{user-select:none}
 @media(max-width:620px){#hand .tile.hand-dragging{touch-action:none}}
+
+
+/* ===== v6.1 chain-direction hotfix =====
+   A snake row that travels right-to-left is visually reversed in JS.
+   Endpoint markers also follow the actual path direction instead of screen-side assumptions. */
+.board-piece.open-end:after{
+  left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;
+}
+.board-piece.open-end.open-left:after{left:-5px!important;top:50%!important;transform:translate(-50%,-50%)!important}
+.board-piece.open-end.open-right:after{right:-5px!important;top:50%!important;transform:translate(50%,-50%)!important}
+.board-piece.open-end.open-top:after{top:-5px!important;left:50%!important;transform:translate(-50%,-50%)!important}
+.board-piece.open-end.open-bottom:after{bottom:-5px!important;left:50%!important;transform:translate(-50%,50%)!important}
+
+
+/* ===== v6.2: gentle faith reminder ===== */
+.site-faith-reminder{
+  margin:0 0 8px;padding:0;color:#a8b9ca;font-size:12px;line-height:1.9;font-weight:600
+}
+.site-credit-line{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+.faith-reminder-toast{
+  position:fixed;z-index:95;top:88px;left:50%;transform:translateX(-50%);
+  width:min(520px,calc(100% - 24px));display:flex;align-items:center;gap:10px;
+  padding:11px 13px;border:1px solid rgba(255,207,92,.28);border-radius:16px;
+  background:rgba(7,25,44,.96);box-shadow:0 14px 38px rgba(0,0,0,.28);backdrop-filter:blur(14px)
+}
+.faith-reminder-toast p{margin:0;flex:1;color:#e7edf4;font-size:12px;line-height:1.8;font-weight:700}
+.faith-reminder-icon{font-size:18px;flex:0 0 auto}
+.faith-reminder-toast button{
+  width:34px;height:34px;flex:0 0 34px;border-radius:10px;border:1px solid rgba(79,139,187,.35);
+  background:#0c2947;color:#d9e7f4;font-size:14px
+}
+.faith-reminder-toast.reminder-enter{animation:faithReminderIn .28s ease both}
+@keyframes faithReminderIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+@media(max-width:620px){
+  .site-faith-reminder{font-size:10px;line-height:1.8;margin-bottom:6px;padding:0 5px}
+  .faith-reminder-toast{top:66px;width:calc(100% - 16px);padding:9px 10px;border-radius:13px;gap:7px}
+  .faith-reminder-toast p{font-size:10px;line-height:1.65}
+  .faith-reminder-icon{font-size:15px}.faith-reminder-toast button{width:30px;height:30px;flex-basis:30px}
+}
