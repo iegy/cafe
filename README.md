@@ -18,7 +18,7 @@
 ارفع كل الملفات والمجلدات إلى نفس مسار GitHub Pages. لا تغيّر `firebase-config.js` أو `turn-config.js` إلا عند تدوير مفاتيح الخدمات.
 
 
-## Update 7.3.0
+## Update 7.4.0
 - Chess now uses custom SVG piece sets (Classic, Slate, Wood, Royal).
 - Piece theme can be changed live during play.
 - Improved mobile presentation for chess pieces, promotion dialog, and side panels.
