@@ -1,8 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getDatabase, ref, set, get, update, remove, onValue, runTransaction, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=7.1.0";
-import { turnConfig } from "./turn-config.js?v=7.1.0";
+import { firebaseConfig } from "./firebase-config.js?v=7.1.1";
+import { turnConfig } from "./turn-config.js?v=7.1.1";
 
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app),$=id=>document.getElementById(id);
 const els={
@@ -77,7 +77,28 @@ function pgnText(room){const g=room.game||{},hist=g.history||[],result=g.result?
 
 // ---------------- Room lifecycle ----------------
 async function createRoom(){els.homeMessage.textContent='';const p=getProfile();if(!p.name){els.homeMessage.textContent='اكتب اسمك الأول.';return}saveProfile();await ensureAuth();for(let n=0;n<7;n++){const code=String(Math.floor(100000+Math.random()*900000));if((await get(roomRef(code))).exists())continue;await set(roomRef(code),{hostUid:state.uid,status:'waiting',gameType:'chess',createdAt:Date.now(),players:{[state.uid]:{name:p.name,avatar:p.avatar,connected:true,lastSeen:Date.now()}},settings:{timeControl:Number(els.timeControl.value)||0,colorChoice:els.colorChoice.value||'random'},expiresAt:Date.now()+7*86400000});await enterRoom(code);return}els.homeMessage.textContent='تعذر إنشاء الغرفة، جرّب مرة أخرى.'}
-async function joinRoom(code){code=(code||'').trim();if(!/^\d{6}$/.test(code)){els.homeMessage.textContent='الكود لازم يكون 6 أرقام.';return}saveProfile();await ensureAuth();const p=getProfile(),rr=roomRef(code);const result=await runTransaction(rr,room=>{if(!room||((room.gameType||'domino')!=='chess'))return;if(room.hostUid===state.uid||room.guestUid===state.uid)return room;if(room.guestUid)return;room.guestUid=state.uid;room.players=room.players||{};room.players[state.uid]={name:p.name,avatar:p.avatar,connected:true,lastSeen:Date.now()};return room});if(!result.committed){els.homeMessage.textContent='الغرفة غير موجودة، ليست شطرنج، أو مكتملة.';return}const room=result.snapshot.val();if(!room||![room.hostUid,room.guestUid].includes(state.uid)){els.homeMessage.textContent='الغرفة مكتملة بالفعل.';return}await enterRoom(code)}
+async function joinRoom(code){
+  code=(code||'').trim();
+  if(!/^\d{6}$/.test(code)){els.homeMessage.textContent='الكود لازم يكون 6 أرقام.';return}
+  saveProfile();await ensureAuth();
+  const p=getProfile(),rr=roomRef(code);
+  const before=await get(rr);
+  if(!before.exists()){els.homeMessage.textContent='الغرفة انتهت أو الكود غير موجود.';return}
+  const existing=before.val();
+  if((existing.gameType||'domino')!=='chess'){els.homeMessage.textContent='الكود ده خاص بلعبة دومينو، مش شطرنج.';return}
+  if(existing.guestUid && ![existing.hostUid,existing.guestUid].includes(state.uid)){els.homeMessage.textContent='غرفة الشطرنج مكتملة بالفعل.';return}
+  const result=await runTransaction(rr,room=>{
+    if(!room||((room.gameType||'domino')!=='chess'))return;
+    if(room.hostUid===state.uid||room.guestUid===state.uid)return room;
+    if(room.guestUid)return;
+    room.guestUid=state.uid;room.players=room.players||{};
+    room.players[state.uid]={name:p.name,avatar:p.avatar,connected:true,lastSeen:Date.now()};return room
+  });
+  if(!result.committed){els.homeMessage.textContent='تعذر دخول الغرفة؛ ممكن صاحبك دخل قبل منك بلحظات.';return}
+  const room=result.snapshot.val();
+  if(!room||![room.hostUid,room.guestUid].includes(state.uid)){els.homeMessage.textContent='غرفة الشطرنج مكتملة بالفعل.';return}
+  await enterRoom(code)
+}
 async function enterRoom(code){state.roomCode=code;localStorage.setItem('chess_room',code);const pres=ref(db,`rooms/${code}/players/${state.uid}/connected`);await set(pres,true);onDisconnect(pres).set(false);state.roomUnsub?.();state.roomUnsub=onValue(roomRef(code),snap=>{const room=snap.val();if(!room){leaveLocal();return}state.room=room;renderRoom(room);handleVoiceSignal(room.voiceCall).catch(console.warn);if(room.hostUid===state.uid&&room.guestUid&&room.status==='waiting'&&!room.game)startGame().catch(console.error)});}
 async function startGame(){const r=state.room;if(!r||r.hostUid!==state.uid||!r.guestUid)return;const host=r.hostUid,guest=r.guestUid,choice=r.settings?.colorChoice||'random';let white=host;if(choice==='black')white=guest;else if(choice==='random')white=Math.random()<.5?host:guest;const black=white===host?guest:host,time=Number(r.settings?.timeControl)||0,fen=startFen(),pos=parseFen(fen);await runTransaction(roomRef(),room=>{if(!room||room.status!=='waiting'||room.game)return;room.status='playing';room.game={fen,colors:{white,black},history:[],positionHistory:[positionKey(pos)],lastMove:null,result:null,clocks:{w:time,b:time},turnStartedAt:Date.now(),startedAt:Date.now(),matchNo:1};room.drawOffer=null;room.expiresAt=Date.now()+7*86400000;return room})}
 function renderRoom(room){if(!room.guestUid){setView('lobby');renderLobby(room)}else if(room.status==='waiting'&&!room.game){setView('lobby');renderLobby(room)}else{setView('game');renderGame(room)}}
@@ -154,4 +175,25 @@ setInterval(()=>{if(state.room?.game&&els.gameView.classList.contains('active'))
 els.boardThemeChoice?.addEventListener('change',()=>{localStorage.setItem('chess_board_theme',els.boardThemeChoice.value);applyVisualThemes()});
 els.pieceThemeChoice?.addEventListener('change',()=>{localStorage.setItem('chess_piece_theme',els.pieceThemeChoice.value);applyVisualThemes()});
 
-(async function boot(){state.sound=localStorage.getItem('chess_sound')!=='0';els.soundBtn.textContent=state.sound?'🔊':'🔇';const n=localStorage.getItem('coffee_name');if(n)els.playerName.value=n;const a=localStorage.getItem('coffee_avatar')||'😎';state.selectedAvatar=a;els.avatarPicker.querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x.dataset.avatar===a));els.timeControl.value=localStorage.getItem('chess_time')||'0';els.colorChoice.value=localStorage.getItem('chess_color')||'random';els.boardThemeChoice.value=localStorage.getItem('chess_board_theme')||'classic';els.pieceThemeChoice.value=localStorage.getItem('chess_piece_theme')||'classic';applyVisualThemes();if('serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js?v=7.1.0').catch(console.warn);try{await ensureAuth();const urlRoom=new URL(location.href).searchParams.get('room'),saved=localStorage.getItem('chess_room'),candidate=urlRoom||saved;if(candidate&&/^\d{6}$/.test(candidate)){const snap=await get(roomRef(candidate));if(snap.exists()){const r=snap.val();if((r.gameType||'domino')!=='chess'){els.homeMessage.textContent='الكود ده خاص بلعبة دومينو.'}else{const mine=[r.hostUid,r.guestUid].includes(state.uid);if(mine)await enterRoom(candidate);else if(urlRoom){els.roomCodeInput.value=candidate;els.joinBox.classList.remove('hidden')}}}}}catch(e){console.error(e);els.homeMessage.textContent='تعذر الاتصال بـ Firebase.'}})();
+(async function boot(){state.sound=localStorage.getItem('chess_sound')!=='0';els.soundBtn.textContent=state.sound?'🔊':'🔇';const n=localStorage.getItem('coffee_name');if(n)els.playerName.value=n;const a=localStorage.getItem('coffee_avatar')||'😎';state.selectedAvatar=a;els.avatarPicker.querySelectorAll('button').forEach(x=>x.classList.toggle('selected',x.dataset.avatar===a));els.timeControl.value=localStorage.getItem('chess_time')||'0';els.colorChoice.value=localStorage.getItem('chess_color')||'random';els.boardThemeChoice.value=localStorage.getItem('chess_board_theme')||'classic';els.pieceThemeChoice.value=localStorage.getItem('chess_piece_theme')||'classic';applyVisualThemes();if('serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js?v=7.1.1').catch(console.warn);try{await ensureAuth();const urlRoom=new URL(location.href).searchParams.get('room'),saved=localStorage.getItem('chess_room'),candidate=urlRoom||saved;if(candidate&&/^\d{6}$/.test(candidate)){
+  const snap=await get(roomRef(candidate));
+  if(snap.exists()){
+    const r=snap.val();
+    if((r.gameType||'domino')!=='chess'){
+      els.homeMessage.textContent='الكود ده خاص بلعبة دومينو.'
+    }else{
+      const mine=[r.hostUid,r.guestUid].includes(state.uid);
+      if(mine) await enterRoom(candidate);
+      else if(urlRoom){
+        els.roomCodeInput.value=candidate;els.joinBox.classList.remove('hidden');
+        if(!r.guestUid){
+          if((els.playerName.value||'').trim()) await joinRoom(candidate);
+          else els.homeMessage.textContent='اكتب اسمك ثم اضغط دخول للانضمام للمباراة.';
+        }else els.homeMessage.textContent='غرفة الشطرنج مكتملة بالفعل.';
+      }
+    }
+  }else if(urlRoom){
+    els.roomCodeInput.value=candidate;els.joinBox.classList.remove('hidden');
+    els.homeMessage.textContent='الغرفة انتهت أو الكود غير موجود.';
+  }
+}}catch(e){console.error(e);els.homeMessage.textContent='تعذر الاتصال بـ Firebase.'}})();

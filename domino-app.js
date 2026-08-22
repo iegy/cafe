@@ -3,8 +3,8 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=7.1.0";
-import { turnConfig } from "./turn-config.js?v=7.1.0";
+import { firebaseConfig } from "./firebase-config.js?v=7.1.1";
+import { turnConfig } from "./turn-config.js?v=7.1.1";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -243,7 +243,7 @@ const soundBuffers={};
 async function preloadSounds(){
   try{
     const ac=audioContext();
-    for(const [kind,url] of Object.entries({play:"./assets/domino-place-real.wav?v=7.1.0",double:"./assets/domino-double-real.wav?v=7.1.0",draw:"./assets/domino-draw-real.wav?v=7.1.0",win:"./assets/domino-win.wav?v=7.1.0"})){
+    for(const [kind,url] of Object.entries({play:"./assets/domino-place-real.wav?v=7.1.1",double:"./assets/domino-double-real.wav?v=7.1.1",draw:"./assets/domino-draw-real.wav?v=7.1.1",win:"./assets/domino-win.wav?v=7.1.1"})){
       if(soundBuffers[kind]) continue;
       const res=await fetch(url); if(!res.ok) continue;
       soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
@@ -1155,7 +1155,7 @@ window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room
   if(els.autoDrawToggle)els.autoDrawToggle.checked=autoDrawEnabled();
   renderHistory();
   els.targetWrap.classList.toggle("hidden",els.matchMode.value==="single");
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=7.1.0").catch(console.warn);
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=7.1.1").catch(console.warn);
   const n=localStorage.getItem("domino_name");if(n)els.playerName.value=n;
   const a=localStorage.getItem("domino_avatar")||"😎";state.selectedAvatar=a;
   [...els.avatarPicker.querySelectorAll("button")].forEach(x=>x.classList.toggle("selected",x.dataset.avatar===a));
