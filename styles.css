@@ -191,3 +191,117 @@ h1{font-size:clamp(36px,5vw,64px);line-height:1.15;margin:18px 0 14px;max-width:
   .voice-active-bar{left:7px;right:7px;bottom:63px;width:auto;border-radius:16px}
   .chat-panel{bottom:119px!important;max-height:60vh}
 }
+
+
+/* ===== v4: continuous domino chain + non-blocking chat + compact responsive game ===== */
+
+/* The board is now a positioned continuous snake calculated by JS. */
+.board{
+  position:relative!important;
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  padding:0!important;
+  overflow:visible!important;
+}
+.board-empty{position:absolute;inset:0;display:grid;place-items:center;padding:0!important}
+.board-piece{
+  position:absolute!important;
+  width:var(--board-short)!important;
+  height:var(--board-long)!important;
+  margin:0!important;
+  transform:none!important;
+  transform-origin:center center;
+  transition:left .2s ease,top .2s ease,box-shadow .15s ease;
+}
+.board-piece.horizontal{
+  width:var(--board-long)!important;
+  height:var(--board-short)!important;
+  grid-template-rows:none!important;
+  grid-template-columns:1fr 1fr!important;
+}
+.board-piece:not(.horizontal){grid-template-columns:none!important;grid-template-rows:1fr 1fr!important}
+.board-piece:not(.horizontal) .half{border-left:0!important;border-bottom:1.5px solid #7d756a!important}
+.board-piece:not(.horizontal) .half:last-child{border-bottom:0!important}
+.board-piece.horizontal .half{border-bottom:0!important;border-left:1.5px solid #7d756a!important}
+.board-piece.horizontal .half:last-child{border-left:0!important}
+.board-row{display:none!important}
+
+.table{overflow:hidden!important;padding:58px 18px 74px!important;min-height:430px}
+.table .board{margin:0 auto}
+
+/* Social controls are part of the document, never floating above the board. */
+.social-dock{
+  position:static!important;left:auto!important;bottom:auto!important;z-index:auto!important;
+  display:flex;justify-content:center;gap:8px;direction:rtl;margin:8px auto 0;width:fit-content;max-width:100%
+}
+.voice-active-bar{
+  position:static!important;left:auto!important;right:auto!important;bottom:auto!important;z-index:auto!important;
+  width:min(520px,100%)!important;margin:8px auto 0
+}
+.chat-preview{
+  width:min(520px,100%);margin:7px auto 0;padding:8px 11px;border:1px solid rgba(42,126,184,.36);
+  border-radius:12px;background:rgba(10,36,62,.92);display:flex;gap:7px;align-items:center;font-size:11px
+}
+.chat-preview b{color:#7edcff;white-space:nowrap}.chat-preview span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dce9f5}
+
+/* Chat is a real grid panel, not an overlay. */
+.chat-panel{
+  position:static!important;left:auto!important;right:auto!important;bottom:auto!important;top:auto!important;
+  z-index:auto!important;width:auto!important;height:430px;max-height:none!important;
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:rgba(7,24,44,.98);
+  border:1px solid #2c6089;border-radius:22px;box-shadow:var(--shadow);overflow:hidden;backdrop-filter:none
+}
+@media(min-width:1181px){
+  .game-layout.chat-open{grid-template-columns:160px minmax(0,1fr) 150px 300px;align-items:start}
+  .game-layout.chat-open .side-panel{padding:14px}
+  .game-layout.chat-open .chat-panel{position:sticky!important;top:92px!important;height:min(610px,calc(100vh - 112px))}
+}
+@media(min-width:981px) and (max-width:1180px){
+  .game-layout.chat-open .chat-panel{grid-column:1/-1;height:300px;margin-top:2px}
+}
+
+/* Score panel becomes much lighter on phone screens so the board keeps priority. */
+@media(max-width:980px){
+  .chat-panel{height:300px;margin-top:2px}
+}
+@media(max-width:620px){
+  .shell{width:calc(100% - 12px)!important}
+  .table{min-height:0!important;padding:54px 7px 66px!important;border-width:5px!important}
+  .board-piece .pip-grid{width:24px!important;height:24px!important}
+  .board-piece .pip{width:4.5px!important;height:4.5px!important}
+  .game-layout{display:flex!important;flex-direction:column!important;gap:7px!important}
+  .table-area{order:1;width:100%;overflow:visible!important}
+  .chat-panel{order:2;height:260px;margin:2px 0 0;border-radius:17px}
+  .reactions-panel{order:3!important;margin-top:0!important}
+  .score-panel{
+    order:4!important;margin-top:0!important;padding:10px 12px!important;border-radius:15px!important;
+    display:grid!important;grid-template-columns:1fr 1fr!important;gap:4px 10px!important
+  }
+  .score-panel h3{display:none!important}
+  .score-panel #scoreRows{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .score-panel .score-row{padding:5px 7px;border:1px solid rgba(255,255,255,.06);border-radius:10px;background:rgba(5,20,37,.42)}
+  .score-panel .score-row b{font-size:16px}.score-panel .score-row span{font-size:10px}
+  .score-panel .round-meta,.score-panel .target-meta{padding:5px 2px;font-size:9px}
+  .score-panel .btn{min-height:38px;margin-top:2px;padding:7px 10px}
+  .social-dock{margin-top:7px!important;gap:6px!important}
+  .social-btn{min-width:74px!important;height:44px!important;border-radius:14px!important;padding:0 10px!important}
+  .voice-active-bar{margin-top:7px!important;border-radius:14px!important;padding:8px 9px!important}
+  .chat-form{padding:8px!important}.chat-form input{height:43px;font-size:16px}.chat-form .btn{min-height:43px!important}
+  .chat-messages{padding:9px!important}.chat-msg{max-width:88%!important}
+  .hand{padding-bottom:8px!important}
+}
+@media(max-width:390px){
+  .board-piece .pip-grid{width:22px!important;height:22px!important}.board-piece .pip{width:4px!important;height:4px!important}
+  .score-panel #scoreRows{grid-template-columns:1fr}
+}
+@media(max-width:980px){
+  .table-area{order:1!important}
+  .chat-panel{order:2!important}
+  .reactions-panel{order:3!important}
+  .score-panel{order:4!important}
+}
+@media(max-width:620px){
+  .game-actions{position:static!important;bottom:auto!important;z-index:auto!important;background:rgba(6,17,33,.55)!important}
+}

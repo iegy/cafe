@@ -3,7 +3,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=3.0.0";
+import { firebaseConfig } from "./firebase-config.js?v=4.0.0";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -25,8 +25,8 @@ const els = {
   playRightBtn:$("playRightBtn"), cancelSideBtn:$("cancelSideBtn"), roundModal:$("roundModal"),
   roundEmoji:$("roundEmoji"), roundTitle:$("roundTitle"), roundText:$("roundText"),
   newRoundBtn:$("newRoundBtn"), resultHomeBtn:$("resultHomeBtn"), shareInGameBtn:$("shareInGameBtn"),
-  leaveGameBtn:$("leaveGameBtn"), soundBtn:$("soundBtn"), toast:$("toast"),
-  socialDock:$("socialDock"), chatToggleBtn:$("chatToggleBtn"), chatUnread:$("chatUnread"), chatPanel:$("chatPanel"),
+  leaveGameBtn:$("leaveGameBtn"), soundBtn:$("soundBtn"), toast:$("toast"), gameLayout:$("gameLayout"),
+  socialDock:$("socialDock"), chatToggleBtn:$("chatToggleBtn"), chatUnread:$("chatUnread"), chatPreview:$("chatPreview"), chatPanel:$("chatPanel"),
   chatCloseBtn:$("chatCloseBtn"), chatMessages:$("chatMessages"), chatForm:$("chatForm"), chatInput:$("chatInput"),
   voiceCallBtn:$("voiceCallBtn"), voiceCallLabel:$("voiceCallLabel"), voiceActiveBar:$("voiceActiveBar"),
   voiceStatusText:$("voiceStatusText"), voiceMuteBtn:$("voiceMuteBtn"), voiceHangupBtn:$("voiceHangupBtn"),
@@ -37,7 +37,7 @@ const els = {
 const state = {
   uid:null, roomCode:null, room:null, roomUnsub:null, selectedAvatar:"😎",
   pendingTile:null, sound:true, lastReactionAt:0, roundModalShownFor:null, starting:false,
-  chatOpen:false, lastChatCount:0, lastBoardCount:null, lastBoardRound:null,
+  chatOpen:false, lastChatCount:0, lastChatAt:0, lastBoardCount:null, lastBoardRound:null,
   peer:null, localStream:null, remoteStream:null, currentCallId:null, incomingCall:null,
   voiceUnsub:null, voiceSignalReady:false, pendingIce:[], seenIce:new Set(), remoteDescriptionSet:false,
   voiceMuted:false, processingVoice:false
@@ -57,7 +57,7 @@ const soundBuffers={};
 async function preloadSounds(){
   try{
     const ac=audioContext();
-    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=3.0.0",draw:"./assets/domino-draw.wav?v=3.0.0",win:"./assets/domino-win.wav?v=3.0.0"})){
+    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=4.0.0",draw:"./assets/domino-draw.wav?v=4.0.0",win:"./assets/domino-win.wav?v=4.0.0"})){
       if(soundBuffers[kind]) continue;
       const res=await fetch(url); if(!res.ok) continue;
       soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
@@ -276,7 +276,7 @@ function renderGame(room){
   els.meBar.innerHTML=playerBarHtml(me,myHand.length,"أنت");
   els.opponentBar.innerHTML=playerBarHtml(op,oppHand.length,"صاحبك");
   const myTurn=g.turn===state.uid && room.status==="playing";
-  els.turnBanner.textContent=room.status==="roundOver"?"انتهت الجولة":myTurn?"دورك الآن":"دور صاحبك";
+  els.turnBanner.textContent=room.status==="matchOver"?"انتهت المباراة":room.status==="roundOver"?"انتهت الجولة":myTurn?"دورك الآن":"دور صاحبك";
   els.turnBanner.style.color=myTurn?"#6dffad":"#fff";
 
   const boardCount=normalizeTiles(g.board).length;
@@ -304,16 +304,89 @@ function playerBarHtml(p,count,label){
 
 function renderBoard(boardRaw){
   const board=normalizeTiles(boardRaw); els.board.innerHTML="";
+  els.board.style.removeProperty("height");
+  const width=Math.max(270,els.board.clientWidth||els.board.parentElement?.clientWidth||720);
+
   if(!board.length){
+    els.board.style.height=`${width<470?250:300}px`;
     const e=document.createElement("div"); e.className="board-empty"; e.textContent="ابدأ أول قطعة"; els.board.appendChild(e); return;
   }
-  const mobile=window.innerWidth<=620;
-  const perRow=mobile?Math.max(3,Math.floor((window.innerWidth-54)/68)):Math.max(6,Math.floor((els.board.clientWidth||720)/98));
-  for(let i=0,rowIndex=0;i<board.length;i+=perRow,rowIndex++){
-    const row=document.createElement("div"); row.className=`board-row ${rowIndex%2?"reverse-flow":""}`;
-    board.slice(i,i+perRow).forEach(t=>row.appendChild(tileEl(t,true,false)));
-    els.board.appendChild(row);
+
+  // Build one continuous serpentine domino chain.  Rows are planned first so
+  // every tile has enough room and no piece can overlap another on phones.
+  const compact=width<470, medium=width<760;
+  const long=Math.round(compact?Math.max(50,Math.min(58,width/6)):
+                        medium?Math.max(58,Math.min(72,width/7.5)):
+                        Math.max(68,Math.min(86,width/9.5)));
+  const short=Math.round(long*.55), gap=2;
+  const margin=Math.max(8,Math.round(short*.28));
+  const minX=margin,maxX=width-margin;
+  const isDouble=t=>{const [a,b]=t.split("-");return a===b;};
+  const extent=t=>isDouble(t)?short:long;
+  const total=board.reduce((sum,t)=>sum+extent(t),0)+gap*Math.max(0,board.length-1);
+  const segments=[];
+
+  if(total<=maxX-minX){
+    const start=(width-total)/2;
+    segments.push({row:[...board],turn:null,dir:1,start,used:total,endpoint:start+total,turnCx:null});
+  }else{
+    let i=0,dir=1,start=minX;
+    while(i<board.length){
+      const available=dir>0?(maxX-start):(start-minX);
+      const row=[];let used=0;
+      while(i<board.length){
+        const e=extent(board[i]);
+        const need=e+(row.length?gap:0);
+        const reserve=i<board.length-1?short:0;
+        if(row.length && used+need+reserve>available)break;
+        if(used+need>available)break;
+        row.push(board[i]);used+=need;i++;
+      }
+      if(!row.length){row.push(board[i]);used=extent(board[i]);i++;}
+      const endpoint=start+dir*used;
+      let turn=null,turnCx=null;
+      if(i<board.length){
+        turn=board[i++];
+        turnCx=endpoint-dir*short/2;
+      }
+      segments.push({row,turn,dir,start,used,endpoint,turnCx});
+      if(turn){start=turnCx;dir*=-1;}
+    }
   }
+
+  els.board.style.setProperty("--board-long",`${long}px`);
+  els.board.style.setProperty("--board-short",`${short}px`);
+
+  let y=null,maxBottom=0,sequenceIndex=0;
+  segments.forEach((segment,segmentIndex)=>{
+    const rowHalf=segment.row.some(isDouble)?long/2:short/2;
+    if(segmentIndex===0)y=margin+rowHalf;
+    let x=segment.start;
+    for(const tile of segment.row){
+      const dbl=isDouble(tile),pathExtent=extent(tile);
+      const orientation=dbl?"vertical":"horizontal";
+      const cx=x+segment.dir*pathExtent/2,cy=y;
+      const w=orientation==="horizontal"?long:short,h=orientation==="horizontal"?short:long;
+      const el=tileEl(tile,orientation,false);el.classList.add("board-piece");
+      el.style.left=`${cx-w/2}px`;el.style.top=`${cy-h/2}px`;el.style.zIndex=String(10+sequenceIndex++);
+      els.board.appendChild(el);maxBottom=Math.max(maxBottom,cy+h/2);
+      x+=segment.dir*(pathExtent+gap);
+    }
+    if(segment.turn){
+      const top=y+rowHalf+gap;
+      const cx=segment.turnCx,cy=top+long/2;
+      const el=tileEl(segment.turn,"vertical",false);el.classList.add("board-piece","board-turn");
+      el.style.left=`${cx-short/2}px`;el.style.top=`${top}px`;el.style.zIndex=String(10+sequenceIndex++);
+      els.board.appendChild(el);maxBottom=Math.max(maxBottom,top+long);
+      if(segmentIndex+1<segments.length){
+        const nextHalf=segments[segmentIndex+1].row.some(isDouble)?long/2:short/2;
+        y=top+long+gap+nextHalf;
+      }
+    }
+  });
+
+  const minHeight=compact?250:medium?285:320;
+  els.board.style.height=`${Math.max(minHeight,Math.ceil(maxBottom+margin))}px`;
 }
 function renderHand(hand,board,myTurn){
   els.hand.innerHTML="";
@@ -322,10 +395,12 @@ function renderHand(hand,board,myTurn){
     el.addEventListener("click",()=>selectTile(i,t)); els.hand.appendChild(el);
   });
 }
-function tileEl(tile,horizontal=false,playable=false){
+function tileEl(tile,orientation=false,playable=false){
   const [a,b]=tile.split("-").map(Number); const isDouble=a===b;
+  const horizontal=orientation===true||orientation==="horizontal";
   const el=document.createElement("div");
   el.className=`tile${horizontal?" horizontal":""}${playable?" playable":""}${isDouble?" double":""}`;
+  el.dataset.orientation=horizontal?"horizontal":"vertical";
   el.setAttribute("aria-label",`${a} - ${b}`);
   el.appendChild(halfEl(a)); el.appendChild(halfEl(b)); return el;
 }
@@ -413,6 +488,7 @@ function showRoundResult(room){
   const g=room.game||{}, key=`${g.round}-${g.endedAt}-${room.status}`;
   if(state.roundModalShownFor===key)return; state.roundModalShownFor=key;
   const winner=g.winnerUid, draw=winner==="draw", meWin=winner===state.uid,matchOver=room.status==="matchOver";
+  const mode=room.settings?.matchMode||"points",target=Number(room.settings?.targetScore||151);
   els.roundEmoji.textContent=draw?"🤝":meWin?"🏆":"🎯";
   if(matchOver){
     els.roundTitle.textContent=meWin?"أنت كسبت المباراة! 🎉":`${room.players?.[winner]?.name||"صاحبك"} كسب المباراة`;
@@ -420,10 +496,14 @@ function showRoundResult(room){
     els.roundTitle.textContent=draw?"تعادل في الجولة":meWin?"أنت كسبت الجولة!":`${room.players?.[winner]?.name||"صاحبك"} كسب الجولة`;
   }
   els.roundText.textContent=draw?"النقاط متساوية بعد قفل اللعب.":`+${g.roundPoints||0} نقطة — ${g.endReason==="blocked"?"الجولة اتقفلت":"أول لاعب خلّص قطعه"}.`;
+  if(!matchOver && mode==="points"){
+    const scores=playerIds(room).map(uid=>`${room.players?.[uid]?.name||"لاعب"}: ${room.players?.[uid]?.score||0}`).join(" • ");
+    els.roundText.textContent+=` ${scores} — اللعب مستمر لحد ${target}.`;
+  }
   if(matchOver && winner!=="draw") els.roundText.textContent+=` النتيجة النهائية: ${room.players?.[winner]?.score||0} نقطة.`;
-  els.newRoundBtn.textContent=matchOver?"مباراة جديدة":"جولة جديدة";
-  els.newRoundBtn.style.display=room.hostUid===state.uid?"block":"none";
-  if(room.hostUid!==state.uid) els.roundText.textContent+=matchOver?" في انتظار منشئ الغرفة يبدأ مباراة جديدة.":" في انتظار منشئ الغرفة يبدأ الجولة التالية.";
+  els.newRoundBtn.textContent=matchOver?"مباراة جديدة":"الجولة التالية";
+  els.newRoundBtn.style.display="block";
+  els.resultHomeBtn.classList.toggle("hidden",!matchOver);
   els.roundModal.classList.remove("hidden"); dominoSound(matchOver&&meWin?"win":"play");
 }
 
@@ -440,12 +520,21 @@ function chatItems(room){
 }
 function renderChat(room){
   const items=chatItems(room);
+  const latest=items[items.length-1];
+  if(latest && state.lastChatAt && (latest.at||0)>state.lastChatAt && latest.uid!==state.uid && !state.chatOpen){
+    const sender=escapeHtml(latest.name||"صاحبك");
+    els.chatPreview.innerHTML=`<b>${sender}</b><span>${escapeHtml(latest.text||"")}</span>`;
+    els.chatPreview.classList.remove("hidden");
+    clearTimeout(renderChat.previewTimer);
+    renderChat.previewTimer=setTimeout(()=>els.chatPreview.classList.add("hidden"),3200);
+  }
   if(!state.chatOpen && items.length>state.lastChatCount){
     const diff=items.length-state.lastChatCount;
     els.chatUnread.textContent=String(Math.min(9,diff));
     els.chatUnread.classList.remove("hidden");
   }
   state.lastChatCount=items.length;
+  if(latest) state.lastChatAt=Math.max(state.lastChatAt,latest.at||0);
   els.chatMessages.innerHTML=items.map(m=>{
     const mine=m.uid===state.uid;
     return `<div class="chat-msg ${mine?"mine":"theirs"}"><small>${mine?"أنت":escapeHtml(m.name||"صاحبك")}</small><div>${escapeHtml(m.text||"")}</div></div>`;
@@ -460,8 +549,14 @@ async function sendChat(text){
   els.chatInput.value=""; dominoSound("draw");
 }
 function setChatOpen(open){
-  state.chatOpen=open; els.chatPanel.classList.toggle("hidden",!open);
-  if(open){els.chatUnread.classList.add("hidden");requestAnimationFrame(()=>{els.chatMessages.scrollTop=els.chatMessages.scrollHeight;els.chatInput.focus();});}
+  state.chatOpen=open;
+  els.chatPanel.classList.toggle("hidden",!open);
+  els.gameLayout?.classList.toggle("chat-open",open);
+  if(open){
+    els.chatUnread.classList.add("hidden");
+    els.chatPreview.classList.add("hidden");
+    requestAnimationFrame(()=>{els.chatMessages.scrollTop=els.chatMessages.scrollHeight;els.chatInput.focus();});
+  }
 }
 
 const RTC_CONFIG={iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]};
@@ -582,15 +677,30 @@ function cleanupVoice(hideIncoming=true){
 }
 
 async function nextRoundOrMatch(){
-  els.roundModal.classList.add("hidden");
-  if(state.room?.hostUid!==state.uid)return;
-  if(state.room?.status==="matchOver"){
-    const host=state.room.hostUid,guest=state.room.guestUid;
-    await update(roomRef(),{
-      status:"waiting",game:null,
-      [`players/${host}/score`]:0,[`players/${guest}/score`]:0
+  if(!state.roomCode||!state.room)return;
+  els.newRoundBtn.disabled=true;
+  const deck=shuffle(newDeck());
+  try{
+    const result=await runTransaction(roomRef(),room=>{
+      if(!room || (room.hostUid!==state.uid && room.guestUid!==state.uid))return;
+      const previousStatus=room.status;
+      if(previousStatus!=="roundOver" && previousStatus!=="matchOver")return;
+      const host=room.hostUid,guest=room.guestUid;
+      if(!host||!guest)return;
+      if(previousStatus==="matchOver"){
+        room.players[host].score=0;room.players[guest].score=0;
+      }
+      const hands={[host]:deck.slice(0,7),[guest]:deck.slice(7,14)};
+      const round=previousStatus==="matchOver"?1:(room.game?.round||0)+1;
+      room.status="playing";
+      room.game={round,turn:chooseStarter(hands),board:[],stock:deck.slice(14),hands,passes:0,startedAt:Date.now()};
+      return room;
     });
-  }else await startRound();
+    if(result.committed){
+      els.roundModal.classList.add("hidden");state.roundModalShownFor=null;dominoSound("draw");
+    }else toast("الجولة التالية بدأت بالفعل على الجهاز الآخر.");
+  }catch(e){console.error(e);toast("تعذر بدء الجولة التالية. جرّب مرة أخرى.");}
+  finally{els.newRoundBtn.disabled=false;}
 }
 
 async function shareRoom(){
@@ -603,8 +713,8 @@ async function copyCode(){await navigator.clipboard.writeText(state.roomCode);to
 function leaveLocal(){
   if(state.roomUnsub){state.roomUnsub();state.roomUnsub=null;}
   cleanupVoice();
-  state.roomCode=null;state.room=null;state.chatOpen=false;state.lastChatCount=0;state.lastBoardCount=null;state.lastBoardRound=null;
-  els.chatPanel.classList.add("hidden");els.socialDock.classList.add("hidden");els.chatUnread.classList.add("hidden");
+  state.roomCode=null;state.room=null;state.chatOpen=false;state.lastChatCount=0;state.lastChatAt=0;state.lastBoardCount=null;state.lastBoardRound=null;
+  els.chatPanel.classList.add("hidden");els.gameLayout?.classList.remove("chat-open");els.chatPreview.classList.add("hidden");els.socialDock.classList.add("hidden");els.chatUnread.classList.add("hidden");
   localStorage.removeItem("domino_room");setView("home");
 }
 async function leaveRoom(){

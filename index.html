@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=3.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=4.0.0" />
 </head>
 <body>
   <div class="app-bg"></div>
@@ -118,7 +118,7 @@
     </section>
 
     <section id="gameView" class="view">
-      <div class="game-layout">
+      <div id="gameLayout" class="game-layout">
         <aside class="side-panel score-panel card">
           <h3>النتيجة</h3>
           <div id="scoreRows"></div>
@@ -149,6 +149,23 @@
             <button id="drawBtn" class="btn secondary" type="button">سحب من المخزن</button>
             <button id="passBtn" class="btn ghost" type="button">تمرير الدور</button>
           </div>
+
+          <div id="socialDock" class="social-dock hidden" aria-label="التواصل أثناء اللعب">
+            <button id="chatToggleBtn" class="social-btn" type="button" aria-label="فتح الشات">
+              <span>💬</span><b>شات</b><i id="chatUnread" class="chat-unread hidden">0</i>
+            </button>
+            <button id="voiceCallBtn" class="social-btn voice" type="button" aria-label="بدء مكالمة صوتية">
+              <span>🎙️</span><b id="voiceCallLabel">اتصال</b>
+            </button>
+          </div>
+          <div id="chatPreview" class="chat-preview hidden" aria-live="polite"></div>
+          <div id="voiceActiveBar" class="voice-active-bar hidden">
+            <span class="voice-pulse"></span>
+            <div><b id="voiceStatusText">متصل صوتيًا</b><small>الصوت مباشر بين الجهازين</small></div>
+            <button id="voiceMuteBtn" class="icon-btn" type="button" aria-label="كتم الميكروفون">🎙️</button>
+            <button id="voiceHangupBtn" class="icon-btn hangup" type="button" aria-label="إنهاء المكالمة">📞</button>
+          </div>
+          <audio id="remoteAudio" autoplay playsinline></audio>
         </section>
 
         <aside class="side-panel reactions-panel card">
@@ -163,35 +180,20 @@
             <p>7 قطع لكل لاعب. اسحب فقط لو مفيش معاك حركة. لو المخزن خلص ومفيش لعب، مرّر الدور.</p>
           </div>
         </aside>
+
+        <aside id="chatPanel" class="chat-panel hidden" aria-label="شات المباراة">
+          <div class="chat-head">
+            <div><b>شات الصحبة</b><small>اللعب يفضل ظاهر أثناء الكلام</small></div>
+            <button id="chatCloseBtn" class="icon-btn" type="button" aria-label="إغلاق الشات">✕</button>
+          </div>
+          <div id="chatMessages" class="chat-messages"></div>
+          <form id="chatForm" class="chat-form">
+            <input id="chatInput" maxlength="180" autocomplete="off" placeholder="اكتب رسالة…" />
+            <button class="btn primary" type="submit">إرسال</button>
+          </form>
+        </aside>
       </div>
     </section>
-
-    <div id="socialDock" class="social-dock hidden">
-      <button id="chatToggleBtn" class="social-btn" type="button" aria-label="فتح الشات">
-        <span>💬</span><b>شات</b><i id="chatUnread" class="chat-unread hidden">0</i>
-      </button>
-      <button id="voiceCallBtn" class="social-btn voice" type="button" aria-label="بدء مكالمة صوتية">
-        <span>🎙️</span><b id="voiceCallLabel">اتصال</b>
-      </button>
-    </div>
-    <div id="voiceActiveBar" class="voice-active-bar hidden">
-      <span class="voice-pulse"></span>
-      <div><b id="voiceStatusText">متصل صوتيًا</b><small>الصوت مباشر بين الجهازين</small></div>
-      <button id="voiceMuteBtn" class="icon-btn" type="button" aria-label="كتم الميكروفون">🎙️</button>
-      <button id="voiceHangupBtn" class="icon-btn hangup" type="button" aria-label="إنهاء المكالمة">📞</button>
-    </div>
-    <audio id="remoteAudio" autoplay playsinline></audio>
-    <aside id="chatPanel" class="chat-panel hidden" aria-label="شات المباراة">
-      <div class="chat-head">
-        <div><b>شات الصحبة</b><small>رسائل داخل الغرفة فقط</small></div>
-        <button id="chatCloseBtn" class="icon-btn" type="button">✕</button>
-      </div>
-      <div id="chatMessages" class="chat-messages"></div>
-      <form id="chatForm" class="chat-form">
-        <input id="chatInput" maxlength="180" autocomplete="off" placeholder="اكتب رسالة…" />
-        <button class="btn primary" type="submit">إرسال</button>
-      </form>
-    </aside>
   </main>
 
   <div id="sideModal" class="modal hidden" role="dialog" aria-modal="true">
@@ -212,7 +214,7 @@
       <h2 id="roundTitle">انتهت الجولة</h2>
       <p id="roundText"></p>
       <button id="newRoundBtn" class="btn primary wide" type="button">جولة جديدة</button>
-      <button id="resultHomeBtn" class="btn ghost" type="button">العودة للرئيسية</button>
+      <button id="resultHomeBtn" class="btn ghost hidden" type="button">العودة للرئيسية</button>
     </div>
   </div>
 
@@ -231,6 +233,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=3.0.0"></script>
+  <script type="module" src="./app.js?v=4.0.0"></script>
 </body>
 </html>
