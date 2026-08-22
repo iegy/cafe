@@ -3,7 +3,8 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=6.2.0";
+import { firebaseConfig } from "./firebase-config.js?v=6.3.1";
+import { turnConfig } from "./turn-config.js?v=6.3.1";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -113,8 +114,12 @@ function enableManualTileDrag(el,tile){
   el.addEventListener("pointermove",e=>{if(els.handSortSelect?.value!=="manual"||!el.hasPointerCapture?.(e.pointerId))return;if(Math.hypot(e.clientX-startX,e.clientY-startY)>10){dragging=true;el.classList.add("hand-dragging");e.preventDefault();}});
   el.addEventListener("pointerup",e=>{if(!dragging){try{el.releasePointerCapture?.(e.pointerId)}catch{}return;}const under=document.elementFromPoint(e.clientX,e.clientY)?.closest?.("#hand .tile");const target=under?.dataset?.tile;el.classList.remove("hand-dragging");try{el.releasePointerCapture?.(e.pointerId)}catch{};if(target&&target!==tile){const order=sortHandTiles(normalizeTiles(state.room?.game?.hands?.[state.uid]));const from=order.indexOf(tile),to=order.indexOf(target);if(from>=0&&to>=0){order.splice(from,1);order.splice(to,0,tile);state.manualHandOrder=order;renderHand(normalizeTiles(state.room?.game?.hands?.[state.uid]),state.room?.game?.board,state.room?.status==="playing"&&state.room?.game?.turn===state.uid);}}state.suppressTileClickUntil=Date.now()+350;e.preventDefault();});
 }
-function chooseStarterByRules(hands,room,randomUid=null){
-  const rule=room?.settings?.starterRule||"highest";if(rule==="host")return room.hostUid;if(rule==="random")return randomUid||([room.hostUid,room.guestUid].filter(Boolean)[Math.random()<.5?0:1]);return chooseStarter(hands);
+function chooseStarterByRules(hands,room,randomUid=null,previousWinnerUid=null){
+  const rule=room?.settings?.starterRule||"winner";
+  if(rule==="winner" && previousWinnerUid && previousWinnerUid!=="draw" && [room.hostUid,room.guestUid].includes(previousWinnerUid)) return previousWinnerUid;
+  if(rule==="host")return room.hostUid;
+  if(rule==="random")return randomUid||([room.hostUid,room.guestUid].filter(Boolean)[Math.random()<.5?0:1]);
+  return chooseStarter(hands);
 }
 function updateReconnectUi(connected){
   state.dbConnected=connected;
@@ -130,7 +135,7 @@ const soundBuffers={};
 async function preloadSounds(){
   try{
     const ac=audioContext();
-    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=6.2.0",draw:"./assets/domino-draw.wav?v=6.2.0",win:"./assets/domino-win.wav?v=6.2.0"})){
+    for(const [kind,url] of Object.entries({play:"./assets/domino-place-real.wav?v=6.3.1",double:"./assets/domino-double-real.wav?v=6.3.1",draw:"./assets/domino-draw-real.wav?v=6.3.1",win:"./assets/domino-win.wav?v=6.3.1"})){
       if(soundBuffers[kind]) continue;
       const res=await fetch(url); if(!res.ok) continue;
       soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
@@ -161,10 +166,10 @@ function dominoSound(kind="play"){
   if(!state.sound) return;
   try{
     const ac=audioContext(); if(ac.state==="suspended") ac.resume();
-    const key=kind==="win"?"win":kind==="draw"?"draw":kind==="error"?null:"play";
+    const key=kind==="win"?"win":kind==="draw"?"draw":kind==="double"?"double":kind==="error"?null:"play";
     if(key&&soundBuffers[key]){
       const playOne=(delay=0,g=.9,rate=1)=>{const src=ac.createBufferSource(),gain=ac.createGain();src.buffer=soundBuffers[key];src.playbackRate.value=rate;gain.gain.value=g;src.connect(gain);gain.connect(ac.destination);src.start(ac.currentTime+delay);};
-      if(kind==="double"){playOne(0,.88,.96);playOne(.055,.52,1.06);}else playOne(0,kind==="draw"?.72:.9,1);return;
+      playOne(0,kind==="draw"?.82:kind==="double"?.96:.92,1);return;
     }
   }catch{}
   fallbackDominoSound(kind);
@@ -244,7 +249,7 @@ async function createRoom(){
   saveProfile();
   localStorage.setItem("domino_match_mode",els.matchMode?.value||"points");
   localStorage.setItem("domino_target_score",els.targetScore?.value||"151");
-  localStorage.setItem("domino_starter_rule",els.starterRule?.value||"highest");
+  localStorage.setItem("domino_starter_rule",els.starterRule?.value||"winner");
   localStorage.setItem("domino_blocked_scoring",els.blockedScoring?.value||"difference");
   await ensureAuth();
   for(let tries=0;tries<6;tries++){
@@ -256,7 +261,7 @@ async function createRoom(){
       settings:{
         matchMode:els.matchMode?.value||"points",
         targetScore:Number(els.targetScore?.value||151),
-        starterRule:els.starterRule?.value||"highest",
+        starterRule:els.starterRule?.value||"winner",
         blockedScoring:els.blockedScoring?.value||"difference"
       },
       stats:{rounds:0,blockedRounds:0,roundWins:{},biggestRoundPoints:0,biggestRoundUid:""},
@@ -343,7 +348,7 @@ function renderLobby(room){
     els.lobbyPlayers.appendChild(row);
   }
   const mode=room.settings?.matchMode||"points", target=room.settings?.targetScore||151;
-  const starterLabel={highest:"أعلى دبل",host:"منشئ الغرفة",random:"عشوائي"}[room.settings?.starterRule||"highest"];
+  const starterLabel={winner:"الفائز بالجولة السابقة",highest:"أعلى دبل",host:"منشئ الغرفة",random:"عشوائي"}[room.settings?.starterRule||"winner"];
   const blockLabel=(room.settings?.blockedScoring||"difference")==="loserTotal"?"مجموع الخاسر":"فرق الأحجار";
   els.lobbyRules.textContent=(mode==="single"?"جولة واحدة":`حتى ${target} نقطة`)+` • البداية: ${starterLabel} • القفل: ${blockLabel}`;
   els.lobbyStatus.textContent=room.guestUid?"اللاعبان جاهزان — جاري بدء الجولة…":"في انتظار اللاعب الثاني…";
@@ -703,7 +708,23 @@ function setChatOpen(open){
   }
 }
 
-const RTC_CONFIG={iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]};
+const DEFAULT_ICE_SERVERS=[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302","stun:stun2.l.google.com:19302"]}];
+let cachedRtcConfig=null;
+async function getRtcConfig(){
+  if(cachedRtcConfig)return cachedRtcConfig;
+  const extra=Array.isArray(turnConfig?.iceServers)?turnConfig.iceServers.filter(s=>s&&s.urls):[];
+  const hasTurn=extra.some(s=>{
+    const urls=Array.isArray(s.urls)?s.urls:[s.urls];
+    return urls.some(u=>typeof u==="string" && (u.startsWith("turn:")||u.startsWith("turns:")));
+  });
+  state.turnAvailable=hasTurn;
+  cachedRtcConfig={
+    iceServers:[...DEFAULT_ICE_SERVERS,...extra],
+    iceCandidatePoolSize:1,
+    iceTransportPolicy:"all"
+  };
+  return cachedRtcConfig;
+}
 function voiceCallRef(){return ref(db,`rooms/${state.roomCode}/voiceCall`);}
 function voiceCandidateRef(uid,key){return ref(db,`rooms/${state.roomCode}/voiceCall/candidates/${uid}/${key}`);}
 function updateVoiceUi(){
@@ -736,7 +757,7 @@ async function flushPendingIce(){
 async function createVoicePeer(){
   if(state.peer) try{state.peer.close();}catch{}
   state.seenIce=new Set();state.remoteDescriptionSet=false;state.pendingIce=[];state.voiceSignalReady=false;
-  const pc=new RTCPeerConnection(RTC_CONFIG);state.peer=pc;
+  const pc=new RTCPeerConnection(await getRtcConfig());state.peer=pc;
   const stream=await ensureMicrophone();stream.getTracks().forEach(t=>pc.addTrack(t,stream));
   state.remoteStream=new MediaStream();els.remoteAudio.srcObject=state.remoteStream;
   pc.ontrack=e=>{for(const track of (e.streams?.[0]?.getTracks?.()||[e.track])) if(!state.remoteStream.getTracks().some(t=>t.id===track.id)) state.remoteStream.addTrack(track); els.remoteAudio.play().catch(()=>{});};
@@ -745,7 +766,7 @@ async function createVoicePeer(){
     const s=pc.connectionState;
     if(s==="connected") els.voiceStatusText.textContent="متصل صوتيًا ✅";
     else if(s==="connecting") els.voiceStatusText.textContent="جاري توصيل الصوت…";
-    else if(s==="failed"){els.voiceStatusText.textContent="تعذر الاتصال الصوتي";toast("تعذر الاتصال المباشر. جرّب شبكة Wi‑Fi أخرى.");}
+    else if(s==="failed"){els.voiceStatusText.textContent="تعذر الاتصال الصوتي";toast(state.turnAvailable?"تعذر الاتصال الصوتي. جرّب إنهاء المكالمة ثم الاتصال من جديد.":"تعذر العثور على خادم TURN للاتصال عبر بيانات الهاتف.");}
     else if(s==="disconnected") els.voiceStatusText.textContent="انقطع الصوت مؤقتًا…";
   };
   return pc;
@@ -835,10 +856,12 @@ async function nextRoundOrMatch(){
         room.players[host].score=0;room.players[guest].score=0;
         room.stats={rounds:0,blockedRounds:0,roundWins:{},biggestRoundPoints:0,biggestRoundUid:""};
       }
+      const previousWinnerUid=previousStatus==="roundOver"?room.game?.winnerUid:null;
       const hands={[host]:deck.slice(0,7),[guest]:deck.slice(7,14)};
       const round=previousStatus==="matchOver"?1:(room.game?.round||0)+1;
+      const nextStarter=chooseStarterByRules(hands,room,fixedRandomUid,previousWinnerUid);
       room.status="playing";room.stats=room.stats||{};room.stats.rounds=round;room.expiresAt=Date.now()+7*24*60*60*1000;
-      room.game={round,turn:chooseStarterByRules(hands,room,fixedRandomUid),board:[],stock:deck.slice(14),hands,passes:0,startedAt:Date.now(),lastMove:null};
+      room.game={round,turn:nextStarter,board:[],stock:deck.slice(14),hands,passes:0,startedAt:Date.now(),lastMove:null};
       return room;
     });
     if(result.committed){
@@ -915,12 +938,15 @@ window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room
   state.sound=localStorage.getItem("domino_sound")!=="0";els.soundBtn.textContent=state.sound?"🔊":"🔇";
   els.matchMode.value=localStorage.getItem("domino_match_mode")||"points";
   els.targetScore.value=localStorage.getItem("domino_target_score")||"151";
-  if(els.starterRule)els.starterRule.value=localStorage.getItem("domino_starter_rule")||"highest";
+  if(els.starterRule){
+    if(localStorage.getItem("domino_starter_rule_version")!=="6.3"){localStorage.setItem("domino_starter_rule","winner");localStorage.setItem("domino_starter_rule_version","6.3");}
+    els.starterRule.value=localStorage.getItem("domino_starter_rule")||"winner";
+  }
   if(els.blockedScoring)els.blockedScoring.value=localStorage.getItem("domino_blocked_scoring")||"difference";
   if(els.handSortSelect)els.handSortSelect.value=localStorage.getItem("domino_hand_sort")||"smart";
   setTableTheme(localStorage.getItem("domino_table_theme")||"green");renderHistory();
   els.targetWrap.classList.toggle("hidden",els.matchMode.value==="single");
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=6.2.0").catch(console.warn);
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=6.3.1").catch(console.warn);
   const n=localStorage.getItem("domino_name");if(n)els.playerName.value=n;
   const a=localStorage.getItem("domino_avatar")||"😎";state.selectedAvatar=a;
   [...els.avatarPicker.querySelectorAll("button")].forEach(x=>x.classList.toggle("selected",x.dataset.avatar===a));

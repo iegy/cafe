@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#081427" />
   <meta name="description" content="دومنو الصحبة — لعبة دومينو خاصة لشخصين عبر الويب." />
   <title>دومنو الصحبة</title>
-  <link rel="icon" href="./logo.svg?v=6.2.0" type="image/svg+xml" />
-  <link rel="manifest" href="./manifest.webmanifest?v=6.2.0" />
+  <link rel="icon" href="./logo.svg?v=6.3.1" type="image/svg+xml" />
+  <link rel="manifest" href="./manifest.webmanifest?v=6.3.1" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=6.2.0" />
+  <link rel="stylesheet" href="./styles.css?v=6.3.1" />
 </head>
 <body>
   <div class="app-bg"></div>
@@ -83,7 +83,8 @@
               <label>
                 <span>بداية كل جولة</span>
                 <select id="starterRule">
-                  <option value="highest" selected>أعلى دبل ثم أعلى مجموع</option>
+                  <option value="winner" selected>الفائز بالجولة السابقة يبدأ (الأولى أعلى دبل)</option>
+                  <option value="highest">أعلى دبل ثم أعلى مجموع كل جولة</option>
                   <option value="host">منشئ الغرفة يبدأ</option>
                   <option value="random">اختيار عشوائي</option>
                 </select>
@@ -311,6 +312,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=6.2.0"></script>
+  <script type="module" src="./app.js?v=6.3.1"></script>
 </body>
 </html>
