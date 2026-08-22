@@ -3,7 +3,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=5.0.0";
+import { firebaseConfig } from "./firebase-config.js?v=6.0.0";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -35,7 +35,11 @@ const els = {
   mobileGameHud:$("mobileGameHud"), mobileOpponentAvatar:$("mobileOpponentAvatar"), mobileOpponentName:$("mobileOpponentName"),
   mobileOpponentCount:$("mobileOpponentCount"), mobileOpponentScore:$("mobileOpponentScore"), mobileRoundLabel:$("mobileRoundLabel"),
   mobileTargetLabel:$("mobileTargetLabel"), mobileMeScore:$("mobileMeScore"), mobileMeName:$("mobileMeName"),
-  mobileMeCount:$("mobileMeCount"), mobileMeAvatar:$("mobileMeAvatar"), mobileShareBtn:$("mobileShareBtn"), mobileLeaveBtn:$("mobileLeaveBtn")
+  mobileMeCount:$("mobileMeCount"), mobileMeAvatar:$("mobileMeAvatar"), mobileShareBtn:$("mobileShareBtn"), mobileLeaveBtn:$("mobileLeaveBtn"),
+  starterRule:$("starterRule"), blockedScoring:$("blockedScoring"), handSortSelect:$("handSortSelect"),
+  historyPanel:$("historyPanel"), historyList:$("historyList"), clearHistoryBtn:$("clearHistoryBtn"),
+  installAppBtn:$("installAppBtn"), tableThemeBtn:$("tableThemeBtn"), reconnectBanner:$("reconnectBanner"),
+  roundScoreline:$("roundScoreline"), roundProgress:$("roundProgress"), matchStats:$("matchStats")
 };
 
 const state = {
@@ -44,7 +48,8 @@ const state = {
   chatOpen:false, lastChatCount:0, lastChatAt:0, lastBoardCount:null, lastBoardRound:null,
   peer:null, localStream:null, remoteStream:null, currentCallId:null, incomingCall:null,
   voiceUnsub:null, voiceSignalReady:false, pendingIce:[], seenIce:new Set(), remoteDescriptionSet:false,
-  voiceMuted:false, processingVoice:false
+  voiceMuted:false, processingVoice:false, dbConnected:false, everConnected:false, installPrompt:null,
+  lastSavedMatchKey:null, lastMoveAt:0, roundRevealTimer:null, manualHandOrder:[], suppressTileClickUntil:0
 };
 
 function setView(name){
@@ -54,6 +59,50 @@ function toast(msg){
   els.toast.textContent=msg; els.toast.classList.remove("hidden");
   clearTimeout(toast.t); toast.t=setTimeout(()=>els.toast.classList.add("hidden"),2200);
 }
+function vibrateMove(tile){
+  try{if(!navigator.vibrate)return;const [a,b]=String(tile||"").split("-");navigator.vibrate(a===b?[24,28,24]:22);}catch{}
+}
+function setTableTheme(theme){
+  theme=theme==="wood"?"wood":"green";document.documentElement.dataset.tableTheme=theme;
+  localStorage.setItem("domino_table_theme",theme);
+  if(els.tableThemeBtn){els.tableThemeBtn.textContent=theme==="wood"?"🪵":"🟢";els.tableThemeBtn.title=theme==="wood"?"الطاولة الخضراء":"الطاولة الخشبية";}
+}
+function cycleTableTheme(){setTableTheme((document.documentElement.dataset.tableTheme||"green")==="green"?"wood":"green");}
+function getHistory(){try{return JSON.parse(localStorage.getItem("domino_match_history")||"[]").filter(Boolean).slice(0,10);}catch{return []}}
+function renderHistory(){
+  if(!els.historyPanel||!els.historyList)return;const items=getHistory();els.historyPanel.classList.toggle("hidden",!items.length);
+  els.historyList.innerHTML=items.map(h=>`<article class="history-item"><div><b>${escapeHtml(h.meName||"أنت")} ${h.meScore||0} <span>—</span> ${h.opScore||0} ${escapeHtml(h.opName||"صاحبك")}</b><small>${escapeHtml(h.result||"")} • ${h.rounds||1} جولات • ${new Date(h.at||Date.now()).toLocaleDateString("ar-EG")}</small></div><span class="history-badge">${h.won?"🏆":"🎯"}</span></article>`).join("");
+}
+function saveMatchHistory(room){
+  if(room.status!=="matchOver"||!room.game?.endedAt)return;const key=`${state.roomCode}-${room.game.endedAt}`;
+  const items=getHistory();if(items.some(x=>x.key===key))return;const opp=otherUid(room),me=room.players?.[state.uid]||{},op=room.players?.[opp]||{};
+  const won=room.game.matchWinnerUid===state.uid;items.unshift({key,at:Date.now(),meName:me.name||"أنت",opName:op.name||"صاحبك",meScore:me.score||0,opScore:op.score||0,won,result:won?"فوز":"خسارة",rounds:room.stats?.rounds||room.game.round||1,target:room.settings?.targetScore||null});
+  localStorage.setItem("domino_match_history",JSON.stringify(items.slice(0,10)));state.lastSavedMatchKey=key;renderHistory();
+}
+function sortHandTiles(hand){
+  const mode=els.handSortSelect?.value||localStorage.getItem("domino_hand_sort")||"smart";const arr=[...hand];if(mode==="original")return arr;
+  if(mode==="manual"){const alive=new Set(arr);state.manualHandOrder=state.manualHandOrder.filter(t=>alive.has(t));for(const t of arr)if(!state.manualHandOrder.includes(t))state.manualHandOrder.push(t);return [...state.manualHandOrder];}
+  const nums=t=>t.split("-").map(Number),isD=t=>{const[a,b]=nums(t);return a===b};
+  if(mode==="doubles")return arr.sort((x,y)=>(isD(y)-isD(x))||(pips(y)-pips(x)));
+  if(mode==="number")return arr.sort((x,y)=>{const[a,b]=nums(x),[c,d]=nums(y);return Math.max(c,d)-Math.max(a,b)||Math.min(c,d)-Math.min(a,b)});
+  return arr.sort((x,y)=>(isD(y)-isD(x))||(Math.max(...nums(y))-Math.max(...nums(x)))||(pips(y)-pips(x)));
+}
+function enableManualTileDrag(el,tile){
+  el.dataset.tile=tile;let startX=0,startY=0,dragging=false;
+  el.addEventListener("pointerdown",e=>{if(els.handSortSelect?.value!=="manual")return;startX=e.clientX;startY=e.clientY;dragging=false;el.setPointerCapture?.(e.pointerId);});
+  el.addEventListener("pointermove",e=>{if(els.handSortSelect?.value!=="manual"||!el.hasPointerCapture?.(e.pointerId))return;if(Math.hypot(e.clientX-startX,e.clientY-startY)>10){dragging=true;el.classList.add("hand-dragging");e.preventDefault();}});
+  el.addEventListener("pointerup",e=>{if(!dragging){try{el.releasePointerCapture?.(e.pointerId)}catch{}return;}const under=document.elementFromPoint(e.clientX,e.clientY)?.closest?.("#hand .tile");const target=under?.dataset?.tile;el.classList.remove("hand-dragging");try{el.releasePointerCapture?.(e.pointerId)}catch{};if(target&&target!==tile){const order=sortHandTiles(normalizeTiles(state.room?.game?.hands?.[state.uid]));const from=order.indexOf(tile),to=order.indexOf(target);if(from>=0&&to>=0){order.splice(from,1);order.splice(to,0,tile);state.manualHandOrder=order;renderHand(normalizeTiles(state.room?.game?.hands?.[state.uid]),state.room?.game?.board,state.room?.status==="playing"&&state.room?.game?.turn===state.uid);}}state.suppressTileClickUntil=Date.now()+350;e.preventDefault();});
+}
+function chooseStarterByRules(hands,room,randomUid=null){
+  const rule=room?.settings?.starterRule||"highest";if(rule==="host")return room.hostUid;if(rule==="random")return randomUid||([room.hostUid,room.guestUid].filter(Boolean)[Math.random()<.5?0:1]);return chooseStarter(hands);
+}
+function updateReconnectUi(connected){
+  state.dbConnected=connected;
+  els.connectionBadge.textContent=connected?"متصل":"غير متصل";els.connectionBadge.className=`badge ${connected?"online":"offline"}`;
+  if(!connected&&state.everConnected)els.reconnectBanner?.classList.remove("hidden");else els.reconnectBanner?.classList.add("hidden");
+  if(connected&&state.everConnected&&updateReconnectUi.wasOffline)toast("رجع الاتصال — المباراة مستمرة ✅");
+  updateReconnectUi.wasOffline=!connected;if(connected)state.everConnected=true;
+}
 function audioContext(){
   return audioContext.ctx || (audioContext.ctx = new (window.AudioContext||window.webkitAudioContext)());
 }
@@ -61,7 +110,7 @@ const soundBuffers={};
 async function preloadSounds(){
   try{
     const ac=audioContext();
-    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=5.0.0",draw:"./assets/domino-draw.wav?v=5.0.0",win:"./assets/domino-win.wav?v=5.0.0"})){
+    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=6.0.0",draw:"./assets/domino-draw.wav?v=6.0.0",win:"./assets/domino-win.wav?v=6.0.0"})){
       if(soundBuffers[kind]) continue;
       const res=await fetch(url); if(!res.ok) continue;
       soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
@@ -94,7 +143,8 @@ function dominoSound(kind="play"){
     const ac=audioContext(); if(ac.state==="suspended") ac.resume();
     const key=kind==="win"?"win":kind==="draw"?"draw":kind==="error"?null:"play";
     if(key&&soundBuffers[key]){
-      const src=ac.createBufferSource(),gain=ac.createGain();src.buffer=soundBuffers[key];gain.gain.value=kind==="draw"?.72:.9;src.connect(gain);gain.connect(ac.destination);src.start();return;
+      const playOne=(delay=0,g=.9,rate=1)=>{const src=ac.createBufferSource(),gain=ac.createGain();src.buffer=soundBuffers[key];src.playbackRate.value=rate;gain.gain.value=g;src.connect(gain);gain.connect(ac.destination);src.start(ac.currentTime+delay);};
+      if(kind==="double"){playOne(0,.88,.96);playOne(.055,.52,1.06);}else playOne(0,kind==="draw"?.72:.9,1);return;
     }
   }catch{}
   fallbackDominoSound(kind);
@@ -121,10 +171,8 @@ async function ensureAuth(){
   await signInAnonymously(auth); state.uid=auth.currentUser.uid;
 }
 
-onAuthStateChanged(auth,u=>{
-  if(u){ state.uid=u.uid; els.connectionBadge.textContent="متصل"; els.connectionBadge.className="badge online"; }
-  else { els.connectionBadge.textContent="غير متصل"; els.connectionBadge.className="badge offline"; }
-});
+onAuthStateChanged(auth,u=>{state.uid=u?.uid||null;if(!u)updateReconnectUi(false);});
+onValue(ref(db,".info/connected"),snap=>updateReconnectUi(snap.val()===true));
 
 function newDeck(){
   const d=[]; for(let a=0;a<=6;a++) for(let b=a;b<=6;b++) d.push(`${a}-${b}`); return d;
@@ -176,6 +224,8 @@ async function createRoom(){
   saveProfile();
   localStorage.setItem("domino_match_mode",els.matchMode?.value||"points");
   localStorage.setItem("domino_target_score",els.targetScore?.value||"151");
+  localStorage.setItem("domino_starter_rule",els.starterRule?.value||"highest");
+  localStorage.setItem("domino_blocked_scoring",els.blockedScoring?.value||"difference");
   await ensureAuth();
   for(let tries=0;tries<6;tries++){
     const code=String(Math.floor(100000+Math.random()*900000));
@@ -185,8 +235,12 @@ async function createRoom(){
       players:{[state.uid]:{name:p.name,avatar:p.avatar,score:0,connected:true,lastSeen:Date.now()}},
       settings:{
         matchMode:els.matchMode?.value||"points",
-        targetScore:Number(els.targetScore?.value||151)
-      }
+        targetScore:Number(els.targetScore?.value||151),
+        starterRule:els.starterRule?.value||"highest",
+        blockedScoring:els.blockedScoring?.value||"difference"
+      },
+      stats:{rounds:0,blockedRounds:0,roundWins:{},biggestRoundPoints:0,biggestRoundUid:""},
+      expiresAt:Date.now()+7*24*60*60*1000
     };
     await set(roomRef(code),data); await enterRoom(code); return;
   }
@@ -239,10 +293,13 @@ async function startRound(){
     const scores={};
     for(const uid of [host,guest]) scores[uid]=state.room.players?.[uid]?.score||0;
     const round=(state.room.game?.round||0)+1;
-    const starter=chooseStarter(hands);
+    const randomUid=Math.random()<.5?host:guest;
+    const starter=chooseStarterByRules(hands,state.room,randomUid);
     await update(roomRef(),{
       status:"playing",
-      game:{round,turn:starter,board:[],stock:deck.slice(14),hands,passes:0,startedAt:Date.now()},
+      game:{round,turn:starter,board:[],stock:deck.slice(14),hands,passes:0,startedAt:Date.now(),lastMove:null},
+      ["stats/rounds"]:round,
+      expiresAt:Date.now()+7*24*60*60*1000,
       [`players/${host}/score`]:scores[host],
       [`players/${guest}/score`]:scores[guest]
     });
@@ -266,7 +323,9 @@ function renderLobby(room){
     els.lobbyPlayers.appendChild(row);
   }
   const mode=room.settings?.matchMode||"points", target=room.settings?.targetScore||151;
-  els.lobbyRules.textContent=mode==="single"?"نظام المباراة: جولة واحدة":`نظام المباراة: أول لاعب يصل إلى ${target} نقطة`;
+  const starterLabel={highest:"أعلى دبل",host:"منشئ الغرفة",random:"عشوائي"}[room.settings?.starterRule||"highest"];
+  const blockLabel=(room.settings?.blockedScoring||"difference")==="loserTotal"?"مجموع الخاسر":"فرق الأحجار";
+  els.lobbyRules.textContent=(mode==="single"?"جولة واحدة":`حتى ${target} نقطة`)+` • البداية: ${starterLabel} • القفل: ${blockLabel}`;
   els.lobbyStatus.textContent=room.guestUid?"اللاعبان جاهزان — جاري بدء الجولة…":"في انتظار اللاعب الثاني…";
 }
 
@@ -296,9 +355,12 @@ function renderGame(room){
   els.turnBanner.style.color=myTurn?"#6dffad":"#fff";
 
   const boardCount=normalizeTiles(g.board).length;
-  if(state.lastBoardRound===g.round && state.lastBoardCount!==null && boardCount>state.lastBoardCount) dominoSound("play");
+  if(state.lastBoardRound===g.round && state.lastBoardCount!==null && boardCount>state.lastBoardCount){
+    const moved=g.lastMove?.tile||normalizeTiles(g.board)[g.lastMove?.side==="left"?0:boardCount-1];const [ma,mb]=String(moved||"").split("-");
+    dominoSound(ma===mb?"double":"play");vibrateMove(moved);
+  }
   state.lastBoardRound=g.round; state.lastBoardCount=boardCount;
-  renderBoard(g.board);
+  renderBoard(g.board,{myTurn,lastMove:g.lastMove});
   renderHand(myHand,g.board,myTurn);
   els.stockCount.textContent=normalizeTiles(g.stock).length;
   const hasMove=myHand.some(t=>canPlay(t,g.board));
@@ -375,7 +437,7 @@ function planBoardLayout(board,width,long){
   return {placements,long,short,height:Math.ceil(maxBottom+margin)};
 }
 
-function renderBoard(boardRaw){
+function renderBoard(boardRaw,opts={}){
   const board=normalizeTiles(boardRaw);els.board.innerHTML="";els.board.style.removeProperty("height");
   const table=els.board.parentElement;
   const width=Math.max(240,els.board.clientWidth||Math.max(240,(table?.clientWidth||720)-24));
@@ -411,18 +473,22 @@ function renderBoard(boardRaw){
 
   els.board.style.setProperty("--board-long",`${layout.long}px`);
   els.board.style.setProperty("--board-short",`${layout.short}px`);
-  layout.placements.forEach(p=>{
+  layout.placements.forEach((p,idx)=>{
     const el=tileEl(p.tile,p.orientation,false);el.classList.add("board-piece");if(p.turn)el.classList.add("board-turn");
+    if(opts.myTurn&&(idx===0||idx===layout.placements.length-1))el.classList.add("open-end");
+    if(idx===0)el.classList.add("left-end");if(idx===layout.placements.length-1)el.classList.add("right-end");
+    const lastIdx=opts.lastMove?.side==="left"?0:layout.placements.length-1;if(opts.lastMove&&idx===lastIdx)el.classList.add("last-played");
     el.style.left=`${p.left}px`;el.style.top=`${p.top}px`;el.style.zIndex=String(p.z);els.board.appendChild(el);
   });
+  requestAnimationFrame(()=>{const el=els.board.querySelector(".last-played");if(!el)return;const r=el.getBoundingClientRect(),tr=table?.getBoundingClientRect();if(tr&&(r.top<tr.top||r.bottom>tr.bottom||r.left<tr.left||r.right>tr.right))el.scrollIntoView({behavior:"smooth",block:"nearest",inline:"nearest"});});
 }
 function renderHand(hand,board,myTurn){
-  els.hand.innerHTML="";
-  els.hand.style.setProperty("--hand-count",String(Math.max(1,hand.length)));
-  els.hand.classList.toggle("many-tiles",hand.length>8);
-  hand.forEach((t,i)=>{
-    const playable=myTurn&&canPlay(t,board), el=tileEl(t,false,playable); el.classList.add("in-hand");
-    el.addEventListener("click",()=>selectTile(i,t)); els.hand.appendChild(el);
+  els.hand.innerHTML="";const visible=sortHandTiles(hand);
+  els.hand.style.setProperty("--hand-count",String(Math.max(1,visible.length)));
+  els.hand.classList.toggle("many-tiles",visible.length>8);
+  visible.forEach((t,i)=>{
+    const playable=myTurn&&canPlay(t,board), el=tileEl(t,false,playable); el.classList.add("in-hand");enableManualTileDrag(el,t);
+    el.addEventListener("click",()=>{if(Date.now()<state.suppressTileClickUntil)return;selectTile(i,t);}); els.hand.appendChild(el);
   });
 }
 function tileEl(tile,orientation=false,playable=false){
@@ -451,7 +517,11 @@ function selectTile(index,tile){
 
 function applyRoundOutcome(room,winnerUid,points,reason){
   room.game.winnerUid=winnerUid; room.game.roundPoints=points; room.game.endReason=reason; room.game.endedAt=Date.now();
+  room.stats=room.stats||{rounds:room.game.round||1,blockedRounds:0,roundWins:{},biggestRoundPoints:0,biggestRoundUid:""};
+  room.stats.rounds=Math.max(room.stats.rounds||0,room.game.round||1);if(reason==="blocked")room.stats.blockedRounds=(room.stats.blockedRounds||0)+1;
   if(winnerUid!=="draw"){
+    room.stats.roundWins=room.stats.roundWins||{};room.stats.roundWins[winnerUid]=(room.stats.roundWins[winnerUid]||0)+1;
+    if(points>(room.stats.biggestRoundPoints||0)){room.stats.biggestRoundPoints=points;room.stats.biggestRoundUid=winnerUid;}
     room.players[winnerUid].score=(room.players[winnerUid].score||0)+points;
     const mode=room.settings?.matchMode||"points",target=Number(room.settings?.targetScore||151);
     room.status=(mode==="single" || room.players[winnerUid].score>=target)?"matchOver":"roundOver";
@@ -471,6 +541,7 @@ async function playTile(index,tile,side){
     if(!canPlaySide(tile,room.game.board,side))return;
     const oriented=orientTile(tile,room.game.board,side), board=normalizeTiles(room.game.board);
     room.game.board=side==="left"?[oriented,...board]:[...board,oriented];
+    room.game.lastMove={tile:oriented,side,by:state.uid,at:Date.now()};
     hand.splice(index,1); room.game.hands[state.uid]=hand; room.game.passes=0;
     const opp=otherUid(room);
     if(hand.length===0){
@@ -506,7 +577,8 @@ async function passTurn(){
       const mySum=hand.reduce((s,t)=>s+pips(t),0),oppHand=normalizeTiles(room.game.hands?.[opp]),oppSum=oppHand.reduce((s,t)=>s+pips(t),0);
       if(mySum===oppSum) applyRoundOutcome(room,"draw",0,"blocked");
       else{
-        const w=mySum<oppSum?state.uid:opp,pts=Math.abs(mySum-oppSum);
+        const w=mySum<oppSum?state.uid:opp,losingSum=Math.max(mySum,oppSum);
+        const pts=(room.settings?.blockedScoring||"difference")==="loserTotal"?losingSum:Math.abs(mySum-oppSum);
         applyRoundOutcome(room,w,pts,"blocked");
       }
     }else room.game.turn=opp;
@@ -518,23 +590,22 @@ function showRoundResult(room){
   const g=room.game||{}, key=`${g.round}-${g.endedAt}-${room.status}`;
   if(state.roundModalShownFor===key)return; state.roundModalShownFor=key;
   const winner=g.winnerUid, draw=winner==="draw", meWin=winner===state.uid,matchOver=room.status==="matchOver";
-  const mode=room.settings?.matchMode||"points",target=Number(room.settings?.targetScore||151);
+  const mode=room.settings?.matchMode||"points",target=Number(room.settings?.targetScore||151),ids=playerIds(room);
   els.roundEmoji.textContent=draw?"🤝":meWin?"🏆":"🎯";
-  if(matchOver){
-    els.roundTitle.textContent=meWin?"أنت كسبت المباراة! 🎉":`${room.players?.[winner]?.name||"صاحبك"} كسب المباراة`;
-  }else{
-    els.roundTitle.textContent=draw?"تعادل في الجولة":meWin?"أنت كسبت الجولة!":`${room.players?.[winner]?.name||"صاحبك"} كسب الجولة`;
-  }
+  els.roundTitle.textContent=matchOver?(meWin?"أنت كسبت المباراة! 🎉":`${room.players?.[winner]?.name||"صاحبك"} كسب المباراة`):(draw?"تعادل في الجولة":meWin?"أنت كسبت الجولة!":`${room.players?.[winner]?.name||"صاحبك"} كسب الجولة`);
   els.roundText.textContent=draw?"النقاط متساوية بعد قفل اللعب.":`+${g.roundPoints||0} نقطة — ${g.endReason==="blocked"?"الجولة اتقفلت":"أول لاعب خلّص قطعه"}.`;
-  if(!matchOver && mode==="points"){
-    const scores=playerIds(room).map(uid=>`${room.players?.[uid]?.name||"لاعب"}: ${room.players?.[uid]?.score||0}`).join(" • ");
-    els.roundText.textContent+=` ${scores} — اللعب مستمر لحد ${target}.`;
-  }
-  if(matchOver && winner!=="draw") els.roundText.textContent+=` النتيجة النهائية: ${room.players?.[winner]?.score||0} نقطة.`;
-  els.newRoundBtn.textContent=matchOver?"مباراة جديدة":"الجولة التالية";
-  els.newRoundBtn.style.display="block";
-  els.resultHomeBtn.classList.toggle("hidden",!matchOver);
-  els.roundModal.classList.remove("hidden"); dominoSound(matchOver&&meWin?"win":"play");
+  els.roundScoreline.innerHTML=ids.map(uid=>`<div><span>${escapeHtml(room.players?.[uid]?.name||"لاعب")}${uid===state.uid?" • أنت":""}</span><b>${room.players?.[uid]?.score||0}</b></div>`).join("");
+  els.roundProgress.innerHTML=mode==="single"?"":ids.map(uid=>{const score=room.players?.[uid]?.score||0,pct=Math.max(0,Math.min(100,Math.round(score/target*100)));return `<div class="progress-row"><span>${escapeHtml(room.players?.[uid]?.name||"لاعب")}</span><i><em style="width:${pct}%"></em></i><small>${score}/${target}</small></div>`}).join("");
+  const stats=room.stats||{};
+  if(matchOver){
+    saveMatchHistory(room);const bigName=room.players?.[stats.biggestRoundUid]?.name||"—";
+    els.matchStats.innerHTML=`<div><b>${stats.rounds||g.round||1}</b><span>جولات</span></div><div><b>${stats.blockedRounds||0}</b><span>مرات قفل</span></div><div><b>${stats.biggestRoundPoints||0}</b><span>أكبر جولة • ${escapeHtml(bigName)}</span></div>`;els.matchStats.classList.remove("hidden");
+  }else els.matchStats.classList.add("hidden");
+  if(!matchOver&&mode==="points")els.roundText.textContent+=` اللعب مستمر لحد ${target}.`;
+  els.newRoundBtn.textContent=matchOver?"مباراة جديدة":"الجولة التالية";els.resultHomeBtn.classList.toggle("hidden",!matchOver);
+  clearTimeout(state.roundRevealTimer);els.newRoundBtn.classList.add("round-next-waiting");els.newRoundBtn.disabled=true;
+  state.roundRevealTimer=setTimeout(()=>{els.newRoundBtn.classList.remove("round-next-waiting");els.newRoundBtn.disabled=false;},matchOver?900:1500);
+  els.roundModal.classList.remove("hidden");dominoSound(matchOver&&meWin?"win":"play");
 }
 
 async function sendReaction(emoji){
@@ -709,7 +780,7 @@ function cleanupVoice(hideIncoming=true){
 async function nextRoundOrMatch(){
   if(!state.roomCode||!state.room)return;
   els.newRoundBtn.disabled=true;
-  const deck=shuffle(newDeck());
+  const deck=shuffle(newDeck()),fixedRandomUid=Math.random()<.5?state.room.hostUid:state.room.guestUid;
   try{
     const result=await runTransaction(roomRef(),room=>{
       if(!room || (room.hostUid!==state.uid && room.guestUid!==state.uid))return;
@@ -719,11 +790,12 @@ async function nextRoundOrMatch(){
       if(!host||!guest)return;
       if(previousStatus==="matchOver"){
         room.players[host].score=0;room.players[guest].score=0;
+        room.stats={rounds:0,blockedRounds:0,roundWins:{},biggestRoundPoints:0,biggestRoundUid:""};
       }
       const hands={[host]:deck.slice(0,7),[guest]:deck.slice(7,14)};
       const round=previousStatus==="matchOver"?1:(room.game?.round||0)+1;
-      room.status="playing";
-      room.game={round,turn:chooseStarter(hands),board:[],stock:deck.slice(14),hands,passes:0,startedAt:Date.now()};
+      room.status="playing";room.stats=room.stats||{};room.stats.rounds=round;room.expiresAt=Date.now()+7*24*60*60*1000;
+      room.game={round,turn:chooseStarterByRules(hands,room,fixedRandomUid),board:[],stock:deck.slice(14),hands,passes:0,startedAt:Date.now(),lastMove:null};
       return room;
     });
     if(result.committed){
@@ -787,13 +859,24 @@ els.voiceAcceptBtn.addEventListener("click",acceptVoiceCall);
 els.voiceDeclineBtn.addEventListener("click",declineVoiceCall);
 els.voiceMuteBtn.addEventListener("click",toggleVoiceMute);
 els.voiceHangupBtn.addEventListener("click",()=>hangupVoice(true));
-window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room.game.board);});
+els.handSortSelect?.addEventListener("change",()=>{localStorage.setItem("domino_hand_sort",els.handSortSelect.value);if(els.handSortSelect.value==="manual")state.manualHandOrder=normalizeTiles(state.room?.game?.hands?.[state.uid]);if(state.room?.game)renderHand(normalizeTiles(state.room.game.hands?.[state.uid]),state.room.game.board,state.room.status==="playing"&&state.room.game.turn===state.uid);});
+els.tableThemeBtn?.addEventListener("click",cycleTableTheme);
+els.clearHistoryBtn?.addEventListener("click",()=>{localStorage.removeItem("domino_match_history");renderHistory();toast("تم مسح سجل المباريات.");});
+els.installAppBtn?.addEventListener("click",async()=>{if(!state.installPrompt)return;state.installPrompt.prompt();try{await state.installPrompt.userChoice;}catch{}state.installPrompt=null;els.installAppBtn.classList.add("hidden");});
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.installPrompt=e;if(!window.matchMedia("(display-mode: standalone)").matches)els.installAppBtn?.classList.remove("hidden");});
+window.addEventListener("appinstalled",()=>{state.installPrompt=null;els.installAppBtn?.classList.add("hidden");toast("تم تثبيت دومنو الصحبة ✅");});
+window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room.game.board,{myTurn:state.room.status==="playing"&&state.room.game.turn===state.uid,lastMove:state.room.game.lastMove});});
 
 (async function boot(){
   state.sound=localStorage.getItem("domino_sound")!=="0";els.soundBtn.textContent=state.sound?"🔊":"🔇";
   els.matchMode.value=localStorage.getItem("domino_match_mode")||"points";
   els.targetScore.value=localStorage.getItem("domino_target_score")||"151";
+  if(els.starterRule)els.starterRule.value=localStorage.getItem("domino_starter_rule")||"highest";
+  if(els.blockedScoring)els.blockedScoring.value=localStorage.getItem("domino_blocked_scoring")||"difference";
+  if(els.handSortSelect)els.handSortSelect.value=localStorage.getItem("domino_hand_sort")||"smart";
+  setTableTheme(localStorage.getItem("domino_table_theme")||"green");renderHistory();
   els.targetWrap.classList.toggle("hidden",els.matchMode.value==="single");
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=6.0.0").catch(console.warn);
   const n=localStorage.getItem("domino_name");if(n)els.playerName.value=n;
   const a=localStorage.getItem("domino_avatar")||"😎";state.selectedAvatar=a;
   [...els.avatarPicker.querySelectorAll("button")].forEach(x=>x.classList.toggle("selected",x.dataset.avatar===a));
@@ -804,8 +887,9 @@ window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room
     if(candidate&&/^\d{6}$/.test(candidate)){
       const snap=await get(roomRef(candidate));
       if(snap.exists()){
-        const r=snap.val();
-        if(r.hostUid===state.uid||r.guestUid===state.uid)await enterRoom(candidate);
+        const r=snap.val(),mine=r.hostUid===state.uid||r.guestUid===state.uid;
+        if(mine && r.expiresAt && Date.now()>Number(r.expiresAt)){try{await remove(roomRef(candidate));}catch{}localStorage.removeItem("domino_room");toast("تم تنظيف غرفة قديمة من الجهاز.");}
+        else if(mine)await enterRoom(candidate);
         else if(urlRoom){els.roomCodeInput.value=candidate;els.joinBox.classList.remove("hidden");}
       }
     }

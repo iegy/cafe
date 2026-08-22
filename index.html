@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#081427" />
   <meta name="description" content="دومنو الصحبة — لعبة دومينو خاصة لشخصين عبر الويب." />
   <title>دومنو الصحبة</title>
-  <link rel="icon" href="./logo.svg" type="image/svg+xml" />
-  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./logo.svg?v=6.0.0" type="image/svg+xml" />
+  <link rel="manifest" href="./manifest.webmanifest?v=6.0.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=5.0.0" />
+  <link rel="stylesheet" href="./styles.css?v=6.0.0" />
 </head>
 <body>
   <div class="app-bg"></div>
@@ -22,10 +22,15 @@
       <div><strong>دومنو الصحبة</strong><span>لعبتك الخاصة مع صاحبك</span></div>
     </a>
     <div class="top-actions">
+      <button id="installAppBtn" class="icon-btn hidden" type="button" aria-label="تثبيت اللعبة" title="تثبيت دومنو الصحبة">⬇️</button>
+      <button id="tableThemeBtn" class="icon-btn" type="button" aria-label="تغيير شكل الطاولة" title="تغيير شكل الطاولة">🟢</button>
       <button id="soundBtn" class="icon-btn" type="button" aria-label="الصوت">🔊</button>
       <span id="connectionBadge" class="badge offline">غير متصل</span>
     </div>
   </header>
+  <div id="reconnectBanner" class="reconnect-banner hidden" role="status" aria-live="polite">
+    <span class="reconnect-spinner"></span> جاري إعادة الاتصال بالمباراة…
+  </div>
 
   <main class="shell">
     <section id="homeView" class="view active">
@@ -67,6 +72,27 @@
             </label>
           </div>
 
+          <details class="advanced-rules">
+            <summary>⚙️ قواعد إضافية</summary>
+            <div class="advanced-rules-grid">
+              <label>
+                <span>بداية كل جولة</span>
+                <select id="starterRule">
+                  <option value="highest" selected>أعلى دبل ثم أعلى مجموع</option>
+                  <option value="host">منشئ الغرفة يبدأ</option>
+                  <option value="random">اختيار عشوائي</option>
+                </select>
+              </label>
+              <label>
+                <span>حساب القفل</span>
+                <select id="blockedScoring">
+                  <option value="difference" selected>فرق مجموع الأحجار</option>
+                  <option value="loserTotal">مجموع أحجار الخاسر</option>
+                </select>
+              </label>
+            </div>
+          </details>
+
           <div class="home-actions">
             <button id="createRoomBtn" class="btn primary" type="button">إنشاء لعبة جديدة</button>
             <button id="showJoinBtn" class="btn secondary" type="button">دخول بكود غرفة</button>
@@ -96,6 +122,10 @@
         <article class="mini-card"><b>📱 موبايل وكمبيوتر</b><span>واجهة Responsive وضغط مباشر على القطع.</span></article>
         <article class="mini-card"><b>💾 استرجاع المباراة</b><span>ترجع لنفس الغرفة بعد Refresh.</span></article>
       </div>
+      <section id="historyPanel" class="history-panel card hidden">
+        <div class="history-head"><div><b>آخر المباريات</b><small>محفوظة على جهازك فقط</small></div><button id="clearHistoryBtn" class="btn ghost small" type="button">مسح السجل</button></div>
+        <div id="historyList" class="history-list"></div>
+      </section>
     </section>
 
     <section id="lobbyView" class="view">
@@ -160,6 +190,17 @@
           </div>
 
           <div id="meBar" class="player-bar me"></div>
+          <div class="hand-toolbar">
+            <span>قطعك</span>
+            <label for="handSortSelect">ترتيب</label>
+            <select id="handSortSelect" aria-label="طريقة ترتيب قطعك">
+              <option value="smart">ذكي</option>
+              <option value="doubles">الدبلات أولًا</option>
+              <option value="number">حسب الرقم</option>
+              <option value="manual">يدوي بالسحب</option>
+              <option value="original">بدون ترتيب</option>
+            </select>
+          </div>
           <div id="hand" class="hand" aria-label="قطعك"></div>
 
           <div class="game-actions">
@@ -239,7 +280,10 @@
       <div id="roundEmoji" class="result-emoji">🏆</div>
       <h2 id="roundTitle">انتهت الجولة</h2>
       <p id="roundText"></p>
-      <button id="newRoundBtn" class="btn primary wide" type="button">جولة جديدة</button>
+      <div id="roundScoreline" class="round-scoreline"></div>
+      <div id="roundProgress" class="round-progress"></div>
+      <div id="matchStats" class="match-stats hidden"></div>
+      <button id="newRoundBtn" class="btn primary wide round-next-btn" type="button">جولة جديدة</button>
       <button id="resultHomeBtn" class="btn ghost hidden" type="button">العودة للرئيسية</button>
     </div>
   </div>
@@ -259,6 +303,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=5.0.0"></script>
+  <script type="module" src="./app.js?v=6.0.0"></script>
 </body>
 </html>
