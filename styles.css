@@ -167,3 +167,27 @@ h1{font-size:clamp(36px,5vw,64px);line-height:1.15;margin:18px 0 14px;max-width:
   .match-settings{grid-template-columns:1fr}
   .board-row .tile.horizontal{width:57px}
 }
+
+
+/* ===== v3 fixes: visible mobile reactions, social dock, voice chat ===== */
+.social-dock{position:fixed;left:18px;bottom:18px;z-index:72;display:flex;gap:8px;direction:rtl}
+.social-btn{position:relative;min-width:76px;height:54px;padding:0 14px;border:1px solid #36729e;border-radius:17px;background:linear-gradient(145deg,#0c2b4b,#0a1c32);color:#fff;box-shadow:0 15px 35px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;gap:7px}
+.social-btn span{font-size:20px}.social-btn b{font-size:11px}.social-btn.voice{border-color:rgba(35,215,122,.5);background:linear-gradient(145deg,#0b3a35,#092621)}
+.social-btn:disabled{opacity:.55;cursor:not-allowed}.social-btn .chat-unread{font-style:normal}
+.voice-active-bar{position:fixed;left:18px;bottom:82px;z-index:73;display:flex;align-items:center;gap:9px;width:min(350px,calc(100vw - 28px));padding:10px 11px;border:1px solid rgba(35,215,122,.42);border-radius:18px;background:rgba(7,34,36,.96);box-shadow:0 20px 55px rgba(0,0,0,.45);backdrop-filter:blur(16px)}
+.voice-active-bar>div{flex:1;min-width:0}.voice-active-bar b{display:block;font-size:12px}.voice-active-bar small{display:block;color:#8fc7b0;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.voice-active-bar .icon-btn{width:39px;height:39px;border-radius:12px}.voice-active-bar .hangup{background:#6b1721;border-color:#a93440;transform:rotate(135deg)}
+.voice-pulse{width:10px;height:10px;border-radius:50%;background:#23d77a;box-shadow:0 0 0 0 rgba(35,215,122,.55);animation:voicePulse 1.6s infinite}
+@keyframes voicePulse{70%{box-shadow:0 0 0 9px rgba(35,215,122,0)}100%{box-shadow:0 0 0 0 rgba(35,215,122,0)}}
+.voice-incoming-card .incoming-mic{width:72px;height:72px;border-radius:24px;margin:0 auto 12px;display:grid;place-items:center;font-size:34px;background:rgba(35,215,122,.13);border:1px solid rgba(35,215,122,.35)}
+.voice-note{display:block;color:var(--muted);font-size:10px;margin-top:8px}
+#remoteAudio{display:none}
+
+/* Always show reactions on mobile instead of hiding the entire panel */
+@media(max-width:620px){
+  .game-layout{display:flex!important;flex-direction:column!important;gap:8px}
+  .table-area{order:1}.reactions-panel{display:block!important;order:2;margin-top:8px;padding:10px 11px!important;border-radius:16px}.score-panel{order:3;margin-top:0!important}
+  .reactions-panel h3{font-size:11px;margin:0 0 7px}.reactions-panel .reactions{display:grid!important;grid-template-columns:repeat(6,1fr)!important;gap:5px}.reactions-panel .reactions button{height:42px!important;border-radius:11px!important;font-size:20px!important;padding:0!important}.reactions-panel .rules-note{display:none!important}
+  .social-dock{left:8px;bottom:8px;gap:6px}.social-btn{min-width:62px;height:48px;padding:0 10px;border-radius:15px}.social-btn span{font-size:18px}.social-btn b{font-size:9px}
+  .voice-active-bar{left:7px;right:7px;bottom:63px;width:auto;border-radius:16px}
+  .chat-panel{bottom:119px!important;max-height:60vh}
+}

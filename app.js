@@ -3,7 +3,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig } from "./firebase-config.js?v=3.0.0";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -26,14 +26,21 @@ const els = {
   roundEmoji:$("roundEmoji"), roundTitle:$("roundTitle"), roundText:$("roundText"),
   newRoundBtn:$("newRoundBtn"), resultHomeBtn:$("resultHomeBtn"), shareInGameBtn:$("shareInGameBtn"),
   leaveGameBtn:$("leaveGameBtn"), soundBtn:$("soundBtn"), toast:$("toast"),
-  chatToggleBtn:$("chatToggleBtn"), chatUnread:$("chatUnread"), chatPanel:$("chatPanel"),
-  chatCloseBtn:$("chatCloseBtn"), chatMessages:$("chatMessages"), chatForm:$("chatForm"), chatInput:$("chatInput")
+  socialDock:$("socialDock"), chatToggleBtn:$("chatToggleBtn"), chatUnread:$("chatUnread"), chatPanel:$("chatPanel"),
+  chatCloseBtn:$("chatCloseBtn"), chatMessages:$("chatMessages"), chatForm:$("chatForm"), chatInput:$("chatInput"),
+  voiceCallBtn:$("voiceCallBtn"), voiceCallLabel:$("voiceCallLabel"), voiceActiveBar:$("voiceActiveBar"),
+  voiceStatusText:$("voiceStatusText"), voiceMuteBtn:$("voiceMuteBtn"), voiceHangupBtn:$("voiceHangupBtn"),
+  voiceIncomingModal:$("voiceIncomingModal"), voiceCallerName:$("voiceCallerName"), voiceAcceptBtn:$("voiceAcceptBtn"),
+  voiceDeclineBtn:$("voiceDeclineBtn"), remoteAudio:$("remoteAudio")
 };
 
 const state = {
   uid:null, roomCode:null, room:null, roomUnsub:null, selectedAvatar:"😎",
   pendingTile:null, sound:true, lastReactionAt:0, roundModalShownFor:null, starting:false,
-  chatOpen:false, lastChatCount:0
+  chatOpen:false, lastChatCount:0, lastBoardCount:null, lastBoardRound:null,
+  peer:null, localStream:null, remoteStream:null, currentCallId:null, incomingCall:null,
+  voiceUnsub:null, voiceSignalReady:false, pendingIce:[], seenIce:new Set(), remoteDescriptionSet:false,
+  voiceMuted:false, processingVoice:false
 };
 
 function setView(name){
@@ -46,37 +53,51 @@ function toast(msg){
 function audioContext(){
   return audioContext.ctx || (audioContext.ctx = new (window.AudioContext||window.webkitAudioContext)());
 }
+const soundBuffers={};
+async function preloadSounds(){
+  try{
+    const ac=audioContext();
+    for(const [kind,url] of Object.entries({play:"./assets/domino-hit.wav?v=3.0.0",draw:"./assets/domino-draw.wav?v=3.0.0",win:"./assets/domino-win.wav?v=3.0.0"})){
+      if(soundBuffers[kind]) continue;
+      const res=await fetch(url); if(!res.ok) continue;
+      soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
+    }
+  }catch(e){ console.warn("Sound preload failed",e); }
+}
+function unlockAudio(){
+  try{
+    const ac=audioContext(); if(ac.state==="suspended") ac.resume(); preloadSounds();
+  }catch{}
+}
+function fallbackDominoSound(kind="play"){
+  try{
+    const ac=audioContext(),now=ac.currentTime;
+    const noise=(at,dur,gain,freq)=>{
+      const len=Math.max(1,Math.floor(ac.sampleRate*dur)),buf=ac.createBuffer(1,len,ac.sampleRate),d=buf.getChannelData(0);
+      for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(len*.12));
+      const s=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();s.buffer=buf;f.type="bandpass";f.frequency.value=freq;f.Q.value=1.3;
+      g.gain.setValueAtTime(gain,at);g.gain.exponentialRampToValueAtTime(.0001,at+dur);s.connect(f);f.connect(g);g.connect(ac.destination);s.start(at);s.stop(at+dur);
+    };
+    const ring=(f,at,gain,dur)=>{const o=ac.createOscillator(),g=ac.createGain();o.type="triangle";o.frequency.value=f;g.gain.setValueAtTime(gain,at);g.gain.exponentialRampToValueAtTime(.0001,at+dur);o.connect(g);g.connect(ac.destination);o.start(at);o.stop(at+dur)};
+    if(kind==="draw"){noise(now,.07,.05,1100);ring(180,now,.018,.09);}
+    else if(kind==="error"){ring(150,now,.02,.08);}
+    else{noise(now,.045,.08,1900);ring(145,now,.035,.12);ring(920,now+.004,.018,.045);}
+  }catch{}
+}
 function dominoSound(kind="play"){
   if(!state.sound) return;
   try{
     const ac=audioContext(); if(ac.state==="suspended") ac.resume();
-    const now=ac.currentTime;
-    const makeNoise=(at,dur,gain,low=500,high=4200)=>{
-      const len=Math.max(1,Math.floor(ac.sampleRate*dur));
-      const buffer=ac.createBuffer(1,len,ac.sampleRate),data=buffer.getChannelData(0);
-      for(let i=0;i<len;i++) data[i]=(Math.random()*2-1)*Math.exp(-i/(len*.22));
-      const src=ac.createBufferSource(),bp=ac.createBiquadFilter(),g=ac.createGain();
-      src.buffer=buffer; bp.type="bandpass"; bp.frequency.value=(low+high)/2; bp.Q.value=.75;
-      g.gain.setValueAtTime(gain,at); g.gain.exponentialRampToValueAtTime(.0001,at+dur);
-      src.connect(bp);bp.connect(g);g.connect(ac.destination);src.start(at);src.stop(at+dur);
-    };
-    const thud=(at,freq,gain,dur)=>{
-      const o=ac.createOscillator(),g=ac.createGain();o.type="sine";o.frequency.setValueAtTime(freq,at);
-      o.frequency.exponentialRampToValueAtTime(Math.max(45,freq*.55),at+dur);
-      g.gain.setValueAtTime(gain,at);g.gain.exponentialRampToValueAtTime(.0001,at+dur);
-      o.connect(g);g.connect(ac.destination);o.start(at);o.stop(at+dur);
-    };
-    if(kind==="draw"){
-      makeNoise(now,.11,.018,250,1800); makeNoise(now+.045,.06,.012,900,3200); thud(now+.015,95,.018,.08);
-    }else if(kind==="error"){
-      thud(now,155,.02,.09);
-    }else if(kind==="win"){
-      thud(now,115,.025,.12); makeNoise(now,.08,.027,700,3600); makeNoise(now+.055,.07,.018,900,4200);
-    }else{
-      thud(now,105,.035,.11); makeNoise(now,.075,.038,650,4200); makeNoise(now+.018,.055,.024,1200,5200);
+    const key=kind==="win"?"win":kind==="draw"?"draw":kind==="error"?null:"play";
+    if(key&&soundBuffers[key]){
+      const src=ac.createBufferSource(),gain=ac.createGain();src.buffer=soundBuffers[key];gain.gain.value=kind==="draw"?.72:.9;src.connect(gain);gain.connect(ac.destination);src.start();return;
     }
   }catch{}
+  fallbackDominoSound(kind);
 }
+window.addEventListener("pointerdown",unlockAudio,{once:true,passive:true});
+preloadSounds();
+
 function getProfile(){
   return {
     name:(els.playerName.value.trim() || localStorage.getItem("domino_name") || "لاعب").slice(0,18),
@@ -198,6 +219,7 @@ async function enterRoom(code){
     const room=snap.val();
     if(!room){ leaveLocal(); return; }
     state.room=room; renderRoom(room);
+    handleVoiceSignal(room.voiceCall).catch(console.warn);
     if(room.hostUid===state.uid && room.guestUid && room.status==="waiting" && !room.game && !state.starting){
       startRound();
     }
@@ -257,6 +279,9 @@ function renderGame(room){
   els.turnBanner.textContent=room.status==="roundOver"?"انتهت الجولة":myTurn?"دورك الآن":"دور صاحبك";
   els.turnBanner.style.color=myTurn?"#6dffad":"#fff";
 
+  const boardCount=normalizeTiles(g.board).length;
+  if(state.lastBoardRound===g.round && state.lastBoardCount!==null && boardCount>state.lastBoardCount) dominoSound("play");
+  state.lastBoardRound=g.round; state.lastBoardCount=boardCount;
   renderBoard(g.board);
   renderHand(myHand,g.board,myTurn);
   els.stockCount.textContent=normalizeTiles(g.stock).length;
@@ -267,7 +292,8 @@ function renderGame(room){
     state.lastReactionAt=room.reaction.at; showReaction(room.reaction.emoji);
   }
   renderChat(room);
-  els.chatToggleBtn.classList.remove("hidden");
+  els.socialDock.classList.remove("hidden");
+  updateVoiceUi();
   if(room.status==="roundOver"||room.status==="matchOver") showRoundResult(room);
   else { els.roundModal.classList.add("hidden"); state.roundModalShownFor=null; }
 }
@@ -348,7 +374,7 @@ async function playTile(index,tile,side){
     }else room.game.turn=opp;
     return room;
   });
-  if(result.committed){dominoSound("play");state.pendingTile=null;}
+  if(result.committed){state.pendingTile=null;}
 }
 
 async function drawTile(){
@@ -437,6 +463,124 @@ function setChatOpen(open){
   state.chatOpen=open; els.chatPanel.classList.toggle("hidden",!open);
   if(open){els.chatUnread.classList.add("hidden");requestAnimationFrame(()=>{els.chatMessages.scrollTop=els.chatMessages.scrollHeight;els.chatInput.focus();});}
 }
+
+const RTC_CONFIG={iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]};
+function voiceCallRef(){return ref(db,`rooms/${state.roomCode}/voiceCall`);}
+function voiceCandidateRef(uid,key){return ref(db,`rooms/${state.roomCode}/voiceCall/candidates/${uid}/${key}`);}
+function updateVoiceUi(){
+  const hasOpponent=!!otherUid(state.room||{});
+  els.voiceCallBtn.disabled=!hasOpponent || !!state.currentCallId;
+  els.voiceCallLabel.textContent=state.currentCallId?"مشغول":"اتصال";
+  els.voiceActiveBar.classList.toggle("hidden",!state.currentCallId);
+  if(!state.currentCallId) els.voiceStatusText.textContent="غير متصل صوتيًا";
+  els.voiceMuteBtn.textContent=state.voiceMuted?"🔇":"🎙️";
+  els.voiceMuteBtn.title=state.voiceMuted?"إلغاء الكتم":"كتم الميكروفون";
+}
+async function ensureMicrophone(){
+  if(state.localStream && state.localStream.active) return state.localStream;
+  if(!navigator.mediaDevices?.getUserMedia) throw new Error("المتصفح لا يدعم استخدام الميكروفون.");
+  state.localStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+  return state.localStream;
+}
+function serializeDescription(desc){return {type:desc.type,sdp:desc.sdp};}
+function serializeCandidate(c){return c.toJSON?c.toJSON():{candidate:c.candidate,sdpMid:c.sdpMid,sdpMLineIndex:c.sdpMLineIndex,usernameFragment:c.usernameFragment||null};}
+async function writeIceCandidate(cand){
+  if(!state.roomCode||!state.currentCallId)return;
+  const key=`${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  await set(voiceCandidateRef(state.uid,key),serializeCandidate(cand));
+}
+async function flushPendingIce(){
+  if(!state.voiceSignalReady)return;
+  const q=[...state.pendingIce];state.pendingIce=[];
+  for(const c of q){try{await writeIceCandidate(c);}catch(e){console.warn("ICE write",e);}}
+}
+async function createVoicePeer(){
+  if(state.peer) try{state.peer.close();}catch{}
+  state.seenIce=new Set();state.remoteDescriptionSet=false;state.pendingIce=[];state.voiceSignalReady=false;
+  const pc=new RTCPeerConnection(RTC_CONFIG);state.peer=pc;
+  const stream=await ensureMicrophone();stream.getTracks().forEach(t=>pc.addTrack(t,stream));
+  state.remoteStream=new MediaStream();els.remoteAudio.srcObject=state.remoteStream;
+  pc.ontrack=e=>{for(const track of (e.streams?.[0]?.getTracks?.()||[e.track])) if(!state.remoteStream.getTracks().some(t=>t.id===track.id)) state.remoteStream.addTrack(track); els.remoteAudio.play().catch(()=>{});};
+  pc.onicecandidate=e=>{if(!e.candidate)return;if(state.voiceSignalReady)writeIceCandidate(e.candidate).catch(console.warn);else state.pendingIce.push(e.candidate);};
+  pc.onconnectionstatechange=()=>{
+    const s=pc.connectionState;
+    if(s==="connected") els.voiceStatusText.textContent="متصل صوتيًا ✅";
+    else if(s==="connecting") els.voiceStatusText.textContent="جاري توصيل الصوت…";
+    else if(s==="failed"){els.voiceStatusText.textContent="تعذر الاتصال الصوتي";toast("تعذر الاتصال المباشر. جرّب شبكة Wi‑Fi أخرى.");}
+    else if(s==="disconnected") els.voiceStatusText.textContent="انقطع الصوت مؤقتًا…";
+  };
+  return pc;
+}
+async function addRemoteCandidates(call){
+  if(!state.peer||!call?.candidates)return;
+  const remoteUid=state.uid===call.callerUid?call.calleeUid:call.callerUid;
+  const candidates=call.candidates?.[remoteUid]||{};
+  for(const [key,c] of Object.entries(candidates)){
+    if(state.seenIce.has(key))continue;
+    try{await state.peer.addIceCandidate(new RTCIceCandidate(c));state.seenIce.add(key);}catch(e){console.warn("ICE add",e);}
+  }
+}
+async function startVoiceCall(){
+  if(state.currentCallId||!state.roomCode)return;
+  const callee=otherUid(state.room||{});if(!callee){toast("استنى صاحبك يدخل الغرفة الأول.");return;}
+  try{
+    els.voiceCallLabel.textContent="جاري…";await ensureMicrophone();
+    const id=`${Date.now()}_${state.uid.slice(0,6)}`;state.currentCallId=id;
+    const pc=await createVoicePeer();
+    const offer=await pc.createOffer({offerToReceiveAudio:true});await pc.setLocalDescription(offer);
+    await set(voiceCallRef(),{id,callerUid:state.uid,calleeUid:callee,status:"ringing",offer:serializeDescription(pc.localDescription),createdAt:Date.now()});
+    state.voiceSignalReady=true;await flushPendingIce();
+    els.voiceStatusText.textContent="بيرن عند صاحبك…";updateVoiceUi();
+  }catch(e){console.error(e);cleanupVoice(false);toast(e.name==="NotAllowedError"?"اسمح باستخدام الميكروفون علشان الشات الصوتي يشتغل.":"تعذر بدء المكالمة الصوتية.");}
+}
+async function acceptVoiceCall(){
+  const call=state.incomingCall;if(!call||state.processingVoice)return;state.processingVoice=true;
+  try{
+    els.voiceIncomingModal.classList.add("hidden");await ensureMicrophone();state.currentCallId=call.id;
+    const pc=await createVoicePeer();state.currentCallId=call.id;
+    await pc.setRemoteDescription(new RTCSessionDescription(call.offer));state.remoteDescriptionSet=true;
+    await addRemoteCandidates(call);
+    const answer=await pc.createAnswer();await pc.setLocalDescription(answer);
+    await update(voiceCallRef(),{answer:serializeDescription(pc.localDescription),status:"answered",answeredAt:Date.now()});
+    state.voiceSignalReady=true;await flushPendingIce();state.incomingCall=null;els.voiceStatusText.textContent="جاري توصيل الصوت…";updateVoiceUi();
+  }catch(e){console.error(e);cleanupVoice(false);toast(e.name==="NotAllowedError"?"لازم تسمح باستخدام الميكروفون.":"تعذر قبول المكالمة.");}
+  finally{state.processingVoice=false;}
+}
+async function declineVoiceCall(){
+  const call=state.incomingCall;els.voiceIncomingModal.classList.add("hidden");state.incomingCall=null;
+  if(call?.id)try{await update(voiceCallRef(),{status:"declined",endedAt:Date.now()});}catch{}
+}
+async function handleVoiceSignal(call){
+  if(state.processingVoice)return;
+  if(!call){if(state.currentCallId||state.incomingCall)cleanupVoice(true);return;}
+  if(call.status==="ringing" && call.calleeUid===state.uid && !state.currentCallId){
+    state.incomingCall=call;els.voiceCallerName.textContent=state.room?.players?.[call.callerUid]?.name||"صاحبك";els.voiceIncomingModal.classList.remove("hidden");return;
+  }
+  if(call.status==="declined" && call.callerUid===state.uid){toast("صاحبك رفض المكالمة.");cleanupVoice(false);return;}
+  if(call.status==="ended"){if(state.currentCallId)toast("تم إنهاء المكالمة.");cleanupVoice(true);return;}
+  if(state.currentCallId!==call.id||!state.peer)return;
+  if(call.callerUid===state.uid && call.answer && !state.remoteDescriptionSet){
+    try{await state.peer.setRemoteDescription(new RTCSessionDescription(call.answer));state.remoteDescriptionSet=true;els.voiceStatusText.textContent="جاري توصيل الصوت…";}catch(e){console.warn("answer",e);}
+  }
+  await addRemoteCandidates(call);
+}
+function toggleVoiceMute(){
+  if(!state.localStream)return;state.voiceMuted=!state.voiceMuted;
+  state.localStream.getAudioTracks().forEach(t=>t.enabled=!state.voiceMuted);updateVoiceUi();toast(state.voiceMuted?"تم كتم الميكروفون":"تم تشغيل الميكروفون");
+}
+async function hangupVoice(writeSignal=true){
+  if(writeSignal&&state.roomCode&&state.currentCallId){try{await update(voiceCallRef(),{status:"ended",endedBy:state.uid,endedAt:Date.now()});}catch{}}
+  cleanupVoice(false);
+}
+function cleanupVoice(hideIncoming=true){
+  try{state.peer?.close();}catch{} state.peer=null;
+  state.localStream?.getTracks().forEach(t=>t.stop());state.localStream=null;
+  state.remoteStream?.getTracks().forEach(t=>t.stop());state.remoteStream=null;els.remoteAudio.srcObject=null;
+  state.currentCallId=null;state.voiceSignalReady=false;state.pendingIce=[];state.seenIce=new Set();state.remoteDescriptionSet=false;state.voiceMuted=false;
+  if(hideIncoming){state.incomingCall=null;els.voiceIncomingModal.classList.add("hidden");}
+  updateVoiceUi();
+}
+
 async function nextRoundOrMatch(){
   els.roundModal.classList.add("hidden");
   if(state.room?.hostUid!==state.uid)return;
@@ -458,11 +602,13 @@ async function shareRoom(){
 async function copyCode(){await navigator.clipboard.writeText(state.roomCode);toast("تم نسخ الكود.");}
 function leaveLocal(){
   if(state.roomUnsub){state.roomUnsub();state.roomUnsub=null;}
-  state.roomCode=null;state.room=null;state.chatOpen=false;state.lastChatCount=0;
-  els.chatPanel.classList.add("hidden");els.chatToggleBtn.classList.add("hidden");els.chatUnread.classList.add("hidden");
+  cleanupVoice();
+  state.roomCode=null;state.room=null;state.chatOpen=false;state.lastChatCount=0;state.lastBoardCount=null;state.lastBoardRound=null;
+  els.chatPanel.classList.add("hidden");els.socialDock.classList.add("hidden");els.chatUnread.classList.add("hidden");
   localStorage.removeItem("domino_room");setView("home");
 }
 async function leaveRoom(){
+  if(state.currentCallId) await hangupVoice(true);
   if(state.roomCode&&state.uid){
     try{
       await update(ref(db,`rooms/${state.roomCode}/players/${state.uid}`),{connected:false,lastSeen:Date.now()});
@@ -494,6 +640,11 @@ els.matchMode.addEventListener("change",()=>{els.targetWrap.classList.toggle("hi
 els.chatToggleBtn.addEventListener("click",()=>setChatOpen(!state.chatOpen));
 els.chatCloseBtn.addEventListener("click",()=>setChatOpen(false));
 els.chatForm.addEventListener("submit",e=>{e.preventDefault();sendChat(els.chatInput.value);});
+els.voiceCallBtn.addEventListener("click",startVoiceCall);
+els.voiceAcceptBtn.addEventListener("click",acceptVoiceCall);
+els.voiceDeclineBtn.addEventListener("click",declineVoiceCall);
+els.voiceMuteBtn.addEventListener("click",toggleVoiceMute);
+els.voiceHangupBtn.addEventListener("click",()=>hangupVoice(true));
 window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room.game.board);});
 
 (async function boot(){

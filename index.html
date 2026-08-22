@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=3.0.0" />
 </head>
 <body>
   <div class="app-bg"></div>
@@ -166,9 +166,21 @@
       </div>
     </section>
 
-    <button id="chatToggleBtn" class="chat-fab hidden" type="button" aria-label="فتح الشات">
-      💬 <span id="chatUnread" class="chat-unread hidden">0</span>
-    </button>
+    <div id="socialDock" class="social-dock hidden">
+      <button id="chatToggleBtn" class="social-btn" type="button" aria-label="فتح الشات">
+        <span>💬</span><b>شات</b><i id="chatUnread" class="chat-unread hidden">0</i>
+      </button>
+      <button id="voiceCallBtn" class="social-btn voice" type="button" aria-label="بدء مكالمة صوتية">
+        <span>🎙️</span><b id="voiceCallLabel">اتصال</b>
+      </button>
+    </div>
+    <div id="voiceActiveBar" class="voice-active-bar hidden">
+      <span class="voice-pulse"></span>
+      <div><b id="voiceStatusText">متصل صوتيًا</b><small>الصوت مباشر بين الجهازين</small></div>
+      <button id="voiceMuteBtn" class="icon-btn" type="button" aria-label="كتم الميكروفون">🎙️</button>
+      <button id="voiceHangupBtn" class="icon-btn hangup" type="button" aria-label="إنهاء المكالمة">📞</button>
+    </div>
+    <audio id="remoteAudio" autoplay playsinline></audio>
     <aside id="chatPanel" class="chat-panel hidden" aria-label="شات المباراة">
       <div class="chat-head">
         <div><b>شات الصحبة</b><small>رسائل داخل الغرفة فقط</small></div>
@@ -204,8 +216,21 @@
     </div>
   </div>
 
+  <div id="voiceIncomingModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card voice-incoming-card">
+      <div class="incoming-mic">🎙️</div>
+      <h3>مكالمة صوتية واردة</h3>
+      <p><strong id="voiceCallerName">صاحبك</strong> عايز يفتح الشات الصوتي.</p>
+      <div class="modal-actions">
+        <button id="voiceDeclineBtn" class="btn ghost danger" type="button">رفض</button>
+        <button id="voiceAcceptBtn" class="btn primary" type="button">قبول</button>
+      </div>
+      <small class="voice-note">هتحتاج تسمح للمتصفح باستخدام الميكروفون.</small>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=3.0.0"></script>
 </body>
 </html>
