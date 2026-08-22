@@ -206,6 +206,15 @@
               <option value="manual">يدوي بالسحب</option>
               <option value="original">بدون ترتيب</option>
             </select>
+            <label for="tileStyleSelect">ستايل</label>
+            <select id="tileStyleSelect" aria-label="ستايل قطع الدومينو">
+              <option value="classic">أبيض أزرق</option>
+              <option value="emerald">أبيض أخضر</option>
+              <option value="royal">أبيض بنفسجي</option>
+              <option value="confetti">ملون</option>
+              <option value="sunset">أبيض برتقالي</option>
+            </select>
+            <label class="auto-draw-switch" for="autoDrawToggle"><input id="autoDrawToggle" type="checkbox" checked><span></span><b>سحب تلقائي</b></label>
           </div>
           <div id="hand" class="hand" aria-label="قطعك"></div>
 
@@ -312,6 +321,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=6.4.0"></script>
+  <script type="module" src="./app.js?v=6.5.1"></script>
 </body>
 </html>

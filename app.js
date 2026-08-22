@@ -3,8 +3,8 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=6.4.0";
-import { turnConfig } from "./turn-config.js?v=6.4.0";
+import { firebaseConfig } from "./firebase-config.js?v=6.5.1";
+import { turnConfig } from "./turn-config.js?v=6.5.1";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -37,7 +37,7 @@ const els = {
   mobileOpponentCount:$("mobileOpponentCount"), mobileOpponentScore:$("mobileOpponentScore"), mobileRoundLabel:$("mobileRoundLabel"),
   mobileTargetLabel:$("mobileTargetLabel"), mobileMeScore:$("mobileMeScore"), mobileMeName:$("mobileMeName"),
   mobileMeCount:$("mobileMeCount"), mobileMeAvatar:$("mobileMeAvatar"), mobileShareBtn:$("mobileShareBtn"), mobileLeaveBtn:$("mobileLeaveBtn"),
-  starterRule:$("starterRule"), blockedScoring:$("blockedScoring"), handSortSelect:$("handSortSelect"),
+  starterRule:$("starterRule"), blockedScoring:$("blockedScoring"), handSortSelect:$("handSortSelect"), tileStyleSelect:$("tileStyleSelect"), autoDrawToggle:$("autoDrawToggle"),
   historyPanel:$("historyPanel"), historyList:$("historyList"), clearHistoryBtn:$("clearHistoryBtn"),
   installAppBtn:$("installAppBtn"), tableThemeBtn:$("tableThemeBtn"), reconnectBanner:$("reconnectBanner"),
   faithReminderToast:$("faithReminderToast"), faithReminderCloseBtn:$("faithReminderCloseBtn"),
@@ -52,7 +52,7 @@ const state = {
   voiceUnsub:null, voiceSignalReady:false, pendingIce:[], seenIce:new Set(), remoteDescriptionSet:false,
   voiceMuted:false, processingVoice:false, dbConnected:false, everConnected:false, installPrompt:null,
   lastSavedMatchKey:null, lastMoveAt:0, roundRevealTimer:null, manualHandOrder:[], suppressTileClickUntil:0,
-  dragPlayActive:false, dragTargetSide:null, dragGhost:null
+  dragPlayActive:false, dragTargetSide:null, dragGhost:null, autoTurnTimer:null, autoTurnBusy:false
 };
 
 function setView(name){
@@ -90,6 +90,21 @@ function setTableTheme(theme){
   if(els.tableThemeBtn){els.tableThemeBtn.textContent="🎨";els.tableThemeBtn.title=theme==="wood"?"الطاولة الحالية: خشبي — اضغط للأخضر":"الطاولة الحالية: أخضر — اضغط للخشبي";els.tableThemeBtn.setAttribute("aria-label","تغيير شكل الطاولة");}
 }
 function cycleTableTheme(){setTableTheme((document.documentElement.dataset.tableTheme||"green")==="green"?"wood":"green");}
+function setTileStyle(style){
+  const allowed=["classic","emerald","royal","sunset","confetti"];
+  style=allowed.includes(style)?style:"classic";
+  document.documentElement.dataset.tileStyle=style;
+  localStorage.setItem("domino_tile_style",style);
+  if(els.tileStyleSelect) els.tileStyleSelect.value=style;
+}
+function autoDrawEnabled(){return localStorage.getItem("domino_auto_draw")!=="0";}
+function setAutoDrawEnabled(enabled){
+  localStorage.setItem("domino_auto_draw",enabled?"1":"0");
+  if(els.autoDrawToggle)els.autoDrawToggle.checked=!!enabled;
+  clearAutoTurn();
+  if(state.room?.game)renderGame(state.room);
+}
+
 function getHistory(){try{return JSON.parse(localStorage.getItem("domino_match_history")||"[]").filter(Boolean).slice(0,10);}catch{return []}}
 function renderHistory(){
   if(!els.historyPanel||!els.historyList)return;const items=getHistory();els.historyPanel.classList.toggle("hidden",!items.length);
@@ -482,13 +497,22 @@ function renderGame(room){
   renderHand(myHand,g.board,myTurn);
   if(myTurn&&state.pendingTile&&myHand.includes(state.pendingTile.tile)&&canPlay(state.pendingTile.tile,g.board))refreshDropTargets(state.pendingTile.tile,g.board,{tapChoice:true});
   else if(!myTurn||!state.pendingTile||!myHand.includes(state.pendingTile.tile)){state.pendingTile=null;clearDropTargets();}
-  if(myTurn&&myHand.some(t=>canPlay(t,g.board))&&localStorage.getItem("domino_drag_coach_v64")!=="1"){
-    localStorage.setItem("domino_drag_coach_v64","1");setTimeout(()=>toast("✋ اسحب القطعة للطرف المضيء — من غير اختيار يمين أو شمال."),500);
+  if(myTurn&&myHand.some(t=>canPlay(t,g.board))&&localStorage.getItem("domino_drag_coach_v65")!=="1"){
+    localStorage.setItem("domino_drag_coach_v65","1");setTimeout(()=>toast("✋ اسحب القطعة للطرف المضيء — من غير اختيار يمين أو شمال."),500);
   }
   els.stockCount.textContent=normalizeTiles(g.stock).length;
   const hasMove=myHand.some(t=>canPlay(t,g.board));
-  els.drawBtn.disabled=!myTurn || hasMove || normalizeTiles(g.stock).length===0;
-  els.passBtn.disabled=!myTurn || hasMove || normalizeTiles(g.stock).length>0;
+  const stockCount=normalizeTiles(g.stock).length, autoDraw=autoDrawEnabled();
+  if(autoDraw){
+    els.drawBtn.textContent="السحب تلقائي ✓"; els.passBtn.textContent="التمرير تلقائي ✓";
+    els.drawBtn.disabled=true; els.passBtn.disabled=true;
+    if(myTurn)maybeHandleAutoTurn(room,myHand);else clearAutoTurn();
+  }else{
+    clearAutoTurn();
+    els.drawBtn.textContent="سحب عشوائي من المخزن"; els.passBtn.textContent="تمرير الدور";
+    els.drawBtn.disabled=!myTurn||hasMove||stockCount===0;
+    els.passBtn.disabled=!myTurn||hasMove||stockCount>0;
+  }
   if(room.reaction && room.reaction.at>state.lastReactionAt){
     state.lastReactionAt=room.reaction.at; showReaction(room.reaction.emoji);
   }
@@ -664,9 +688,41 @@ function tileEl(tile,orientation=false,playable=false){
 }
 const PIP_POS={0:[],1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 function halfEl(n){
-  const h=document.createElement("div"); h.className="half"; const g=document.createElement("div"); g.className="pip-grid";
+  const h=document.createElement("div"); h.className="half"; h.dataset.value=String(n); const g=document.createElement("div"); g.className="pip-grid";
   for(let i=1;i<=9;i++){const s=document.createElement("span"); if(PIP_POS[n].includes(i))s.className="pip"; g.appendChild(s);} h.appendChild(g); return h;
 }
+function clearAutoTurn(){
+  clearTimeout(state.autoTurnTimer);
+  state.autoTurnTimer=null;
+  state.autoTurnBusy=false;
+}
+
+async function maybeHandleAutoTurn(room,myHand){
+  if(!autoDrawEnabled()){clearAutoTurn();return;}
+  if(room?.status!=="playing" || room?.game?.turn!==state.uid){clearAutoTurn();return;}
+  if(state.dragPlayActive || state.autoTurnBusy)return;
+  const board=room.game.board;
+  if(myHand.some(t=>canPlay(t,board))){clearAutoTurn();return;}
+  const stock=normalizeTiles(room.game.stock);
+  state.autoTurnBusy=true;
+  clearTimeout(state.autoTurnTimer);
+  state.autoTurnTimer=setTimeout(async()=>{
+    try{
+      if(stock.length) await drawTile(true);
+      else await passTurn(true);
+    }catch(e){console.warn("auto turn",e);}
+    finally{
+      state.autoTurnBusy=false;
+      state.autoTurnTimer=setTimeout(()=>{
+        const current=state.room;
+        if(!current?.game||current.status!=="playing"||current.game.turn!==state.uid||!autoDrawEnabled())return;
+        const handNow=normalizeTiles(current.game.hands?.[state.uid]);
+        if(!handNow.some(t=>canPlay(t,current.game.board)))maybeHandleAutoTurn(current,handNow);
+      },180);
+    }
+  }, stock.length?520:650);
+}
+
 function selectTile(index,tile){
   const room=state.room,g=room?.game;if(!g||room.status!=="playing"||g.turn!==state.uid)return;
   if(!canPlay(tile,g.board)){toast("القطعة دي مش راكبة حاليًا.");dominoSound("error");return;}
@@ -718,21 +774,27 @@ async function playTile(index,tile,side){
   if(result.committed){state.pendingTile=null;}
 }
 
-async function drawTile(){
+async function drawTile(auto=false){
   const rr=roomRef();
+  const randomWord=(globalThis.crypto?.getRandomValues?.(new Uint32Array(1))?.[0] ?? Math.floor(Math.random()*4294967296));
+  const randomUnit=randomWord/4294967296;
   const result=await runTransaction(rr,room=>{
     if(!room||room.status!=="playing"||room.game?.turn!==state.uid)return;
     const hand=normalizeTiles(room.game.hands?.[state.uid]);
     if(hand.some(t=>canPlay(t,room.game.board)))return;
     const stock=normalizeTiles(room.game.stock); if(!stock.length)return;
-    hand.push(stock.shift()); room.game.hands[state.uid]=hand; room.game.stock=stock; room.game.passes=0; return room;
+    const pick=Math.min(stock.length-1,Math.floor(randomUnit*stock.length));
+    const [drawn]=stock.splice(pick,1);
+    hand.push(drawn); room.game.hands[state.uid]=hand; room.game.stock=stock; room.game.passes=0;
+    room.game.lastDraw={tile:drawn,by:state.uid,at:Date.now()};
+    return room;
   });
-  if(result.committed)dominoSound("draw"); else toast("السحب غير متاح حاليًا.");
+  if(result.committed)dominoSound("draw"); else if(!auto) toast("السحب غير متاح حاليًا.");
 }
 
-async function passTurn(){
+async function passTurn(auto=false){
   const rr=roomRef();
-  await runTransaction(rr,room=>{
+  const result=await runTransaction(rr,room=>{
     if(!room||room.status!=="playing"||room.game?.turn!==state.uid)return;
     const hand=normalizeTiles(room.game.hands?.[state.uid]),stock=normalizeTiles(room.game.stock);
     if(stock.length||hand.some(t=>canPlay(t,room.game.board)))return;
@@ -749,6 +811,7 @@ async function passTurn(){
     }else room.game.turn=opp;
     return room;
   });
+  if(!result.committed && !auto) toast("التمرير غير متاح حاليًا.");
 }
 
 function showRoundResult(room){
@@ -768,8 +831,9 @@ function showRoundResult(room){
   }else els.matchStats.classList.add("hidden");
   if(!matchOver&&mode==="points")els.roundText.textContent+=` اللعب مستمر لحد ${target}.`;
   els.newRoundBtn.textContent=matchOver?"مباراة جديدة":"الجولة التالية";els.resultHomeBtn.classList.toggle("hidden",!matchOver);
+  clearAutoTurn();
   clearTimeout(state.roundRevealTimer);els.newRoundBtn.classList.add("round-next-waiting");els.newRoundBtn.disabled=true;
-  state.roundRevealTimer=setTimeout(()=>{els.newRoundBtn.classList.remove("round-next-waiting");els.newRoundBtn.disabled=false;},matchOver?900:1500);
+  state.roundRevealTimer=setTimeout(()=>{els.newRoundBtn.classList.remove("round-next-waiting");els.newRoundBtn.disabled=false;els.resultHomeBtn.disabled=false;},420);
   els.roundModal.classList.remove("hidden");dominoSound(matchOver&&meWin?"win":"play");
 }
 
@@ -973,7 +1037,7 @@ async function nextRoundOrMatch(){
         room.players[host].score=0;room.players[guest].score=0;
         room.stats={rounds:0,blockedRounds:0,roundWins:{},biggestRoundPoints:0,biggestRoundUid:""};
       }
-      const previousWinnerUid=previousStatus==="roundOver"?room.game?.winnerUid:null;
+      const previousWinnerUid=previousStatus==="roundOver"?room.game?.winnerUid:(room.game?.matchWinnerUid||null);
       const hands={[host]:deck.slice(0,7),[guest]:deck.slice(7,14)};
       const round=previousStatus==="matchOver"?1:(room.game?.round||0)+1;
       const nextStarter=chooseStarterByRules(hands,room,fixedRandomUid,previousWinnerUid);
@@ -982,6 +1046,7 @@ async function nextRoundOrMatch(){
       return room;
     });
     if(result.committed){
+      clearAutoTurn(); state.pendingTile=null; clearDropTargets();
       els.roundModal.classList.add("hidden");state.roundModalShownFor=null;dominoSound("draw");
     }else toast("الجولة التالية بدأت بالفعل على الجهاز الآخر.");
   }catch(e){console.error(e);toast("تعذر بدء الجولة التالية. جرّب مرة أخرى.");}
@@ -1025,7 +1090,7 @@ els.copyCodeBtn.addEventListener("click",copyCode);els.shareRoomBtn.addEventList
 if(els.mobileShareBtn)els.mobileShareBtn.addEventListener("click",shareRoom);
 els.leaveLobbyBtn.addEventListener("click",leaveRoom);els.leaveGameBtn.addEventListener("click",leaveRoom);
 if(els.mobileLeaveBtn)els.mobileLeaveBtn.addEventListener("click",leaveRoom);
-els.drawBtn.addEventListener("click",drawTile);els.passBtn.addEventListener("click",passTurn);
+els.drawBtn.addEventListener("click",()=>drawTile(false));els.passBtn.addEventListener("click",()=>passTurn(false));
 els.board.addEventListener("click",e=>{const z=e.target.closest?.(".board-drop-zone.is-valid");if(!z||!state.pendingTile)return;const p=state.pendingTile,side=z.dataset.logicalSide||"right";if(canPlaySide(p.tile,state.room?.game?.board,side)){state.pendingTile=null;playTile(p.index,p.tile,side);}});
 els.playLeftBtn.addEventListener("click",()=>state.pendingTile&&playTile(state.pendingTile.index,state.pendingTile.tile,"left"));
 els.playRightBtn.addEventListener("click",()=>state.pendingTile&&playTile(state.pendingTile.index,state.pendingTile.tile,"right"));
@@ -1044,6 +1109,8 @@ els.voiceDeclineBtn.addEventListener("click",declineVoiceCall);
 els.voiceMuteBtn.addEventListener("click",toggleVoiceMute);
 els.voiceHangupBtn.addEventListener("click",()=>hangupVoice(true));
 els.handSortSelect?.addEventListener("change",()=>{localStorage.setItem("domino_hand_sort",els.handSortSelect.value);if(els.handSortSelect.value==="manual")state.manualHandOrder=normalizeTiles(state.room?.game?.hands?.[state.uid]);if(state.room?.game)renderHand(normalizeTiles(state.room.game.hands?.[state.uid]),state.room.game.board,state.room.status==="playing"&&state.room.game.turn===state.uid);});
+els.tileStyleSelect?.addEventListener("change",()=>setTileStyle(els.tileStyleSelect.value));
+els.autoDrawToggle?.addEventListener("change",()=>setAutoDrawEnabled(els.autoDrawToggle.checked));
 els.tableThemeBtn?.addEventListener("click",cycleTableTheme);
 els.faithReminderCloseBtn?.addEventListener("click",hideFaithReminder);
 els.clearHistoryBtn?.addEventListener("click",()=>{localStorage.removeItem("domino_match_history");renderHistory();toast("تم مسح سجل المباريات.");});
@@ -1057,12 +1124,15 @@ window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room
   els.matchMode.value=localStorage.getItem("domino_match_mode")||"points";
   els.targetScore.value=localStorage.getItem("domino_target_score")||"151";
   if(els.starterRule){
-    if(localStorage.getItem("domino_starter_rule_version")!=="6.3"){localStorage.setItem("domino_starter_rule","winner");localStorage.setItem("domino_starter_rule_version","6.3");}
+    if(localStorage.getItem("domino_starter_rule_version")!=="6.5"){localStorage.setItem("domino_starter_rule","winner");localStorage.setItem("domino_starter_rule_version","6.5");}
     els.starterRule.value=localStorage.getItem("domino_starter_rule")||"winner";
   }
   if(els.blockedScoring)els.blockedScoring.value=localStorage.getItem("domino_blocked_scoring")||"difference";
   if(els.handSortSelect)els.handSortSelect.value=localStorage.getItem("domino_hand_sort")||"smart";
-  setTableTheme(localStorage.getItem("domino_table_theme")||"green");renderHistory();
+  setTableTheme(localStorage.getItem("domino_table_theme")||"green");
+  setTileStyle(localStorage.getItem("domino_tile_style")||"classic");
+  if(els.autoDrawToggle)els.autoDrawToggle.checked=autoDrawEnabled();
+  renderHistory();
   els.targetWrap.classList.toggle("hidden",els.matchMode.value==="single");
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=6.4.0").catch(console.warn);
   const n=localStorage.getItem("domino_name");if(n)els.playerName.value=n;

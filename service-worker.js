@@ -1,9 +1,9 @@
-const CACHE = "domino-alsohba-v6-4-0";
+const CACHE = "domino-alsohba-v6-5-1";
 const CORE = [
-  "./", "./index.html", "./styles.css?v=6.4.0", "./app.js?v=6.4.0", "./firebase-config.js?v=6.4.0",
-  "./logo.svg", "./manifest.webmanifest", "./turn-config.js?v=6.4.0",
-  "./assets/domino-place-real.wav?v=6.4.0", "./assets/domino-double-real.wav?v=6.4.0",
-  "./assets/domino-draw-real.wav?v=6.4.0", "./assets/domino-win.wav?v=6.4.0", "./icons/icon-192.png", "./icons/icon-512.png"
+  "./", "./index.html", "./styles.css?v=6.5.1", "./app.js?v=6.5.1", "./firebase-config.js?v=6.5.1",
+  "./logo.svg", "./manifest.webmanifest", "./turn-config.js?v=6.5.1",
+  "./assets/domino-place-real.wav?v=6.5.1", "./assets/domino-double-real.wav?v=6.5.1",
+  "./assets/domino-draw-real.wav?v=6.5.1", "./assets/domino-win.wav?v=6.5.1", "./icons/icon-192.png", "./icons/icon-512.png"
 ];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).catch(() => {}));
