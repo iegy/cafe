@@ -2,325 +2,74 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#081427" />
-  <meta name="description" content="دومنو الصحبة — لعبة دومينو خاصة لشخصين عبر الويب." />
-  <title>دومنو الصحبة</title>
-  <link rel="icon" href="./logo.svg?v=6.4.0" type="image/svg+xml" />
-  <link rel="manifest" href="./manifest.webmanifest?v=6.4.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1e22" />
+  <meta name="description" content="القهوة — منصة ألعاب خاصة للأصحاب: دومينو وشطرنج أونلاين بغرف خاصة." />
+  <title>القهوة — ألعاب الصحبة</title>
+  <link rel="icon" href="./logo-coffee.png?v=7.1.0" />
+  <link rel="manifest" href="./manifest.webmanifest?v=7.1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=6.4.0" />
+  <link rel="stylesheet" href="./platform.css?v=7.1.0" />
 </head>
 <body>
-  <div class="app-bg"></div>
-
-  <header class="topbar">
-    <a class="brand" href="./" aria-label="دومنو الصحبة">
-      <img src="./logo.svg" alt="" />
-      <div><strong>دومنو الصحبة</strong><span>لعبتك الخاصة مع صاحبك</span></div>
+  <div class="ambient"></div>
+  <header class="site-head">
+    <a class="coffee-brand" href="./">
+      <img src="./logo-coffee.png" alt="القهوة" />
+      <div><strong>القهوة</strong><span>ألعاب الصحبة أونلاين</span></div>
     </a>
-    <div class="top-actions">
-      <button id="installAppBtn" class="icon-btn hidden" type="button" aria-label="تثبيت اللعبة" title="تثبيت دومنو الصحبة">⬇️</button>
-      <button id="tableThemeBtn" class="icon-btn" type="button" aria-label="تغيير شكل الطاولة" title="تغيير شكل الطاولة">🎨</button>
-      <button id="soundBtn" class="icon-btn" type="button" aria-label="الصوت">🔊</button>
-      <span id="connectionBadge" class="badge offline">غير متصل</span>
+    <div class="head-actions">
+      <button id="installBtn" class="icon-btn hidden" type="button" title="تثبيت القهوة">⬇️</button>
+      <span id="netBadge" class="net-badge off">غير متصل</span>
     </div>
   </header>
-  <div id="reconnectBanner" class="reconnect-banner hidden" role="status" aria-live="polite">
-    <span class="reconnect-spinner"></span> جاري إعادة الاتصال بالمباراة…
-  </div>
-  <div id="faithReminderToast" class="faith-reminder-toast hidden" role="status" aria-live="polite">
-    <span class="faith-reminder-icon">🤍</span>
-    <p>اللعب للمتعة، فلا تنسَ ذكر الله وأداء الفرائض في أوقاتها.</p>
-    <button id="faithReminderCloseBtn" type="button" aria-label="إغلاق التذكير">✕</button>
-  </div>
 
-  <main class="shell">
-    <section id="homeView" class="view active">
-      <div class="hero card">
-        <div class="hero-copy">
-          <span class="eyebrow">لشخصين فقط • بدون تسجيل</span>
-          <h1>اللمة أحلى مع <em>دومنو الصحبة</em></h1>
-          <p>اعمل غرفة، ابعت الكود لصاحبك، وابدأوا اللعب فورًا. الجولة بتتحفظ لحظيًا ولو عملت Refresh ترجع مكانك.</p>
-
-          <div class="name-row">
-            <label for="playerName">اسمك في اللعبة</label>
-            <input id="playerName" maxlength="18" autocomplete="nickname" placeholder="مثال: محمد" />
-          </div>
-
-          <div class="avatar-picker" id="avatarPicker" aria-label="اختر الصورة الرمزية">
-            <button type="button" data-avatar="😎" class="selected">😎</button>
-            <button type="button" data-avatar="🧔">🧔</button>
-            <button type="button" data-avatar="🤠">🤠</button>
-            <button type="button" data-avatar="🕶️">🕶️</button>
-            <button type="button" data-avatar="👑">👑</button>
-          </div>
-
-          <div class="match-settings">
-            <label>
-              <span>نظام المباراة</span>
-              <select id="matchMode">
-                <option value="points" selected>بنطات / نقاط تراكمية</option>
-                <option value="single">جولة واحدة</option>
-              </select>
-            </label>
-            <label id="targetWrap">
-              <span>اللعب لحد</span>
-              <select id="targetScore">
-                <option value="51">51 نقطة</option>
-                <option value="101">101 نقطة</option>
-                <option value="151" selected>151 نقطة</option>
-                <option value="201">201 نقطة</option>
-              </select>
-            </label>
-          </div>
-
-          <details class="advanced-rules">
-            <summary>⚙️ قواعد إضافية</summary>
-            <div class="advanced-rules-grid">
-              <label>
-                <span>بداية كل جولة</span>
-                <select id="starterRule">
-                  <option value="winner" selected>الفائز بالجولة السابقة يبدأ (الأولى أعلى دبل)</option>
-                  <option value="highest">أعلى دبل ثم أعلى مجموع كل جولة</option>
-                  <option value="host">منشئ الغرفة يبدأ</option>
-                  <option value="random">اختيار عشوائي</option>
-                </select>
-              </label>
-              <label>
-                <span>حساب القفل</span>
-                <select id="blockedScoring">
-                  <option value="difference" selected>فرق مجموع الأحجار</option>
-                  <option value="loserTotal">مجموع أحجار الخاسر</option>
-                </select>
-              </label>
-            </div>
-          </details>
-
-          <div class="home-actions">
-            <button id="createRoomBtn" class="btn primary" type="button">إنشاء لعبة جديدة</button>
-            <button id="showJoinBtn" class="btn secondary" type="button">دخول بكود غرفة</button>
-          </div>
-
-          <div id="joinBox" class="join-box hidden">
-            <input id="roomCodeInput" inputmode="numeric" maxlength="6" placeholder="كود الغرفة - 6 أرقام" />
-            <button id="joinRoomBtn" class="btn primary" type="button">دخول</button>
-          </div>
-
-          <p id="homeMessage" class="message"></p>
-        </div>
-
-        <div class="hero-art">
-          <div class="big-domino d1"><span>● ● ●</span><span>● ●</span></div>
-          <div class="big-domino d2"><span>●</span><span>● ● ●</span></div>
-          <div class="spark s1">✦</div><div class="spark s2">✦</div>
-          <div class="felt-preview">
-            <span>خصوصية</span><b>1 × 1</b><small>غرفة خاصة</small>
-          </div>
+  <main class="page-shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="kicker">☕ اللمة القديمة بروح أونلاين</span>
+        <h1>اختار لعبتك، واعزم صاحبك على <em>القهوة</em></h1>
+        <p>غرف خاصة، لعب لحظي، شات ومكالمة صوتية، وتجربة موبايل معمولة علشان تحس إنكم قاعدين على نفس الترابيزة.</p>
+        <div class="join-card">
+          <label for="roomCode">عندك كود غرفة؟</label>
+          <div><input id="roomCode" inputmode="numeric" maxlength="6" placeholder="اكتب 6 أرقام" /><button id="joinBtn" type="button">دخول</button></div>
+          <small id="joinMessage"></small>
         </div>
       </div>
-
-      <div class="features">
-        <article class="mini-card"><b>⚡ لعب لحظي</b><span>كل حركة تظهر فورًا للطرف الآخر.</span></article>
-        <article class="mini-card"><b>🔒 غرفة خاصة</b><span>الكود يكفي، ولا يدخل لاعب ثالث.</span></article>
-        <article class="mini-card"><b>📱 موبايل وكمبيوتر</b><span>واجهة Responsive وضغط مباشر على القطع.</span></article>
-        <article class="mini-card"><b>💾 استرجاع المباراة</b><span>ترجع لنفس الغرفة بعد Refresh.</span></article>
-      </div>
-      <section id="historyPanel" class="history-panel card hidden">
-        <div class="history-head"><div><b>آخر المباريات</b><small>محفوظة على جهازك فقط</small></div><button id="clearHistoryBtn" class="btn ghost small" type="button">مسح السجل</button></div>
-        <div id="historyList" class="history-list"></div>
-      </section>
+      <div class="hero-logo"><img src="./logo-coffee.png" alt="شعار القهوة" /></div>
     </section>
 
-    <section id="lobbyView" class="view">
-      <div class="lobby card">
-        <div class="lobby-logo"><img src="./logo.svg" alt="دومنو الصحبة" /></div>
-        <span class="success-dot">✓</span>
-        <h2>تم إنشاء الغرفة</h2>
-        <p>ابعت الكود أو الرابط لصاحبك.</p>
-        <div class="room-code-wrap">
-          <span>كود الغرفة</span>
-          <strong id="lobbyRoomCode">------</strong>
-          <button id="copyCodeBtn" class="icon-btn" type="button">📋</button>
-        </div>
-        <button id="shareRoomBtn" class="btn primary wide" type="button">مشاركة رابط اللعبة</button>
-        <div id="lobbyPlayers" class="lobby-players"></div>
-        <div id="lobbyRules" class="lobby-rules">نظام المباراة: 151 نقطة</div>
-        <p id="lobbyStatus" class="waiting">في انتظار اللاعب الثاني…</p>
-        <button id="leaveLobbyBtn" class="btn ghost" type="button">إلغاء والعودة</button>
+    <section class="games-section">
+      <div class="section-title"><span>اختار اللعبة</span><h2>ترابيزتك مستنياك</h2></div>
+      <div class="games-grid">
+        <a class="game-card domino-card" href="./domino.html">
+          <div class="game-icon"><span>⚄</span><span>⚂</span></div>
+          <div class="game-copy"><small>1 × 1</small><h3>دومينو القهوة</h3><p>Draw Dominoes بقواعد قياسية أو مخصصة، سحب بالإيد، ستايلات قطع، ونظام نقاط كامل.</p></div>
+          <span class="play-pill">ابدأ اللعب ←</span>
+        </a>
+        <a class="game-card chess-card" href="./chess.html">
+          <div class="game-icon chess-knight">♞</div>
+          <div class="game-copy"><small>1 × 1</small><h3>شطرنج القهوة</h3><p>شطرنج كامل بالقوانين القياسية، سحب وإفلات، كش ومات، ترقية، تبييت، ساعة وPGN.</p></div>
+          <span class="play-pill">ابدأ اللعب ←</span>
+        </a>
       </div>
     </section>
 
-    <section id="gameView" class="view">
-      <div id="gameLayout" class="game-layout">
-        <aside class="side-panel score-panel card">
-          <h3>النتيجة</h3>
-          <div id="scoreRows"></div>
-          <div class="round-meta"><span>الجولة</span><b id="roundNo">1</b></div>
-          <div class="target-meta"><span>النظام</span><b id="targetScoreLabel">151 نقطة</b></div>
-          <button id="shareInGameBtn" class="btn small secondary" type="button">مشاركة الكود</button>
-          <button id="leaveGameBtn" class="btn small ghost danger" type="button">مغادرة</button>
-        </aside>
-
-        <section class="table-area">
-          <div id="mobileGameHud" class="mobile-game-hud" aria-label="ملخص المباراة">
-            <div class="mobile-hud-player opponent">
-              <span id="mobileOpponentAvatar" class="mobile-hud-avatar">😎</span>
-              <div class="mobile-hud-copy"><b id="mobileOpponentName">صاحبك</b><small id="mobileOpponentCount">7 قطع</small></div>
-              <strong id="mobileOpponentScore" class="mobile-hud-points">0</strong>
-            </div>
-            <div class="mobile-hud-center">
-              <b id="mobileRoundLabel">الجولة 1</b>
-              <small id="mobileTargetLabel">إلى 151</small>
-            </div>
-            <div class="mobile-hud-player me">
-              <strong id="mobileMeScore" class="mobile-hud-points">0</strong>
-              <div class="mobile-hud-copy"><b id="mobileMeName">أنت</b><small id="mobileMeCount">7 قطع</small></div>
-              <span id="mobileMeAvatar" class="mobile-hud-avatar">😎</span>
-            </div>
-          </div>
-
-          <div id="opponentBar" class="player-bar opponent"></div>
-
-          <div class="table card">
-            <div id="reactionBubble" class="reaction-bubble hidden"></div>
-            <div id="turnBanner" class="turn-banner">جاري تجهيز الجولة…</div>
-            <div id="board" class="board" aria-label="طاولة الدومينو"></div>
-            <button id="stockBtn" class="stock" type="button">
-              <span class="stock-stack">▰<i>▰</i><i>▰</i></span>
-              <b>المخزن</b>
-              <small id="stockCount">0</small>
-            </button>
-          </div>
-
-          <div id="meBar" class="player-bar me"></div>
-          <div class="hand-toolbar">
-            <span>قطعك</span>
-            <label for="handSortSelect">ترتيب</label>
-            <select id="handSortSelect" aria-label="طريقة ترتيب قطعك">
-              <option value="smart">ذكي</option>
-              <option value="doubles">الدبلات أولًا</option>
-              <option value="number">حسب الرقم</option>
-              <option value="manual">يدوي بالسحب</option>
-              <option value="original">بدون ترتيب</option>
-            </select>
-            <label for="tileStyleSelect">ستايل</label>
-            <select id="tileStyleSelect" aria-label="ستايل قطع الدومينو">
-              <option value="classic">أبيض أزرق</option>
-              <option value="emerald">أبيض أخضر</option>
-              <option value="royal">أبيض بنفسجي</option>
-              <option value="confetti">ملون</option>
-              <option value="sunset">أبيض برتقالي</option>
-            </select>
-            <label class="auto-draw-switch" for="autoDrawToggle"><input id="autoDrawToggle" type="checkbox" checked><span></span><b>سحب تلقائي</b></label>
-          </div>
-          <div id="hand" class="hand" aria-label="قطعك"></div>
-
-          <div class="game-actions">
-            <button id="drawBtn" class="btn secondary" type="button">سحب من المخزن</button>
-            <button id="passBtn" class="btn ghost" type="button">تمرير الدور</button>
-          </div>
-
-          <div id="socialDock" class="social-dock hidden" aria-label="التواصل أثناء اللعب">
-            <button id="chatToggleBtn" class="social-btn" type="button" aria-label="فتح الشات">
-              <span>💬</span><b>شات</b><i id="chatUnread" class="chat-unread hidden">0</i>
-            </button>
-            <button id="voiceCallBtn" class="social-btn voice" type="button" aria-label="بدء مكالمة صوتية">
-              <span>🎙️</span><b id="voiceCallLabel">اتصال</b>
-            </button>
-          </div>
-          <div id="chatPreview" class="chat-preview hidden" aria-live="polite"></div>
-          <div id="voiceActiveBar" class="voice-active-bar hidden">
-            <span class="voice-pulse"></span>
-            <div><b id="voiceStatusText">متصل صوتيًا</b><small>الصوت مباشر بين الجهازين</small></div>
-            <button id="voiceMuteBtn" class="icon-btn" type="button" aria-label="كتم الميكروفون">🎙️</button>
-            <button id="voiceHangupBtn" class="icon-btn hangup" type="button" aria-label="إنهاء المكالمة">📞</button>
-          </div>
-          <div class="mobile-utility-row">
-            <button id="mobileShareBtn" class="mobile-utility-btn" type="button">🔗 <span>مشاركة الكود</span></button>
-            <button id="mobileLeaveBtn" class="mobile-utility-btn danger" type="button">🚪 <span>مغادرة</span></button>
-          </div>
-          <audio id="remoteAudio" autoplay playsinline></audio>
-        </section>
-
-        <aside class="side-panel reactions-panel card">
-          <h3>ردود سريعة</h3>
-          <div class="reactions">
-            <button type="button">😎</button><button type="button">😂</button>
-            <button type="button">🔥</button><button type="button">👏</button>
-            <button type="button">😏</button><button type="button">🤝</button>
-          </div>
-          <div class="rules-note">
-            <b>قواعد سريعة</b>
-            <p>7 قطع لكل لاعب. اسحب فقط لو مفيش معاك حركة. لو المخزن خلص ومفيش لعب، مرّر الدور.</p>
-          </div>
-        </aside>
-
-        <aside id="chatPanel" class="chat-panel hidden" aria-label="شات المباراة">
-          <div class="chat-head">
-            <div><b>شات الصحبة</b><small>اللعب يفضل ظاهر أثناء الكلام</small></div>
-            <button id="chatCloseBtn" class="icon-btn" type="button" aria-label="إغلاق الشات">✕</button>
-          </div>
-          <div id="chatMessages" class="chat-messages"></div>
-          <form id="chatForm" class="chat-form">
-            <input id="chatInput" maxlength="180" autocomplete="off" placeholder="اكتب رسالة…" />
-            <button class="btn primary" type="submit">إرسال</button>
-          </form>
-        </aside>
-      </div>
+    <section class="platform-features">
+      <article><b>🔒 غرفة خاصة</b><span>كود واحد يكفي للعب مع صاحبك.</span></article>
+      <article><b>🎙️ صوت وشات</b><span>نفس التواصل داخل كل الألعاب.</span></article>
+      <article><b>📱 موبايل أولًا</b><span>تحكم باللمس والسحب بدل القوائم الثقيلة.</span></article>
+      <article><b>⚡ لحظي</b><span>Firebase يزامن الحركة بين الجهازين فورًا.</span></article>
     </section>
   </main>
 
-  <footer class="site-credit">
-    <p class="site-faith-reminder">🤍 اللعب للمتعة، فلا تنسَ ذكر الله وأداء الفرائض في أوقاتها.</p>
-    <div class="site-credit-line">
-      <span>تصميم وبرمجة <strong>محمد حسين</strong></span>
-      <a href="https://iegy.net/" target="_blank" rel="noopener noreferrer">iegy.net</a>
-    </div>
+  <footer class="footer">
+    <p>🤍 اللعب للمتعة، فلا تنسَ ذكر الله وأداء الفرائض في أوقاتها.</p>
+    <div>تصميم وبرمجة <strong>محمد حسين</strong> — <a href="https://iegy.net/" target="_blank" rel="noopener noreferrer">iegy.net</a></div>
   </footer>
-
-  <div id="sideModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card">
-      <h3>القطعة تنفع في الناحيتين</h3>
-      <p>اختار مكان وضعها.</p>
-      <div class="modal-actions">
-        <button id="playLeftBtn" class="btn secondary" type="button">الطرف الشمال</button>
-        <button id="playRightBtn" class="btn primary" type="button">الطرف اليمين</button>
-      </div>
-      <button id="cancelSideBtn" class="btn ghost" type="button">إلغاء</button>
-    </div>
-  </div>
-
-  <div id="roundModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card result-card">
-      <div id="roundEmoji" class="result-emoji">🏆</div>
-      <h2 id="roundTitle">انتهت الجولة</h2>
-      <p id="roundText"></p>
-      <div id="roundScoreline" class="round-scoreline"></div>
-      <div id="roundProgress" class="round-progress"></div>
-      <div id="matchStats" class="match-stats hidden"></div>
-      <button id="newRoundBtn" class="btn primary wide round-next-btn" type="button">جولة جديدة</button>
-      <button id="resultHomeBtn" class="btn ghost hidden" type="button">العودة للرئيسية</button>
-    </div>
-  </div>
-
-  <div id="voiceIncomingModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card voice-incoming-card">
-      <div class="incoming-mic">🎙️</div>
-      <h3>مكالمة صوتية واردة</h3>
-      <p><strong id="voiceCallerName">صاحبك</strong> عايز يفتح الشات الصوتي.</p>
-      <div class="modal-actions">
-        <button id="voiceDeclineBtn" class="btn ghost danger" type="button">رفض</button>
-        <button id="voiceAcceptBtn" class="btn primary" type="button">قبول</button>
-      </div>
-      <small class="voice-note">هتحتاج تسمح للمتصفح باستخدام الميكروفون.</small>
-    </div>
-  </div>
-
   <div id="toast" class="toast hidden"></div>
-
-  <script type="module" src="./app.js?v=6.5.1"></script>
+  <script type="module" src="./platform.js?v=7.1.0"></script>
 </body>
 </html>

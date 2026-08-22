@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#121713" />
+  <meta name="description" content="شطرنج القهوة — شطرنج أونلاين خاص بين صديقين بالقواعد القياسية." />
+  <title>شطرنج القهوة</title>
+  <link rel="icon" href="./logo-coffee.png?v=7.1.0" />
+  <link rel="manifest" href="./manifest.webmanifest?v=7.1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./chess.css?v=7.1.0" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><img src="./logo-coffee.png" alt="القهوة" /><div><strong>القهوة</strong><span>شطرنج القهوة</span></div></a>
+    <div class="top-actions"><button id="soundBtn" class="icon-btn" type="button">🔊</button><span id="connectionBadge" class="badge offline">غير متصل</span></div>
+  </header>
+  <div id="reconnectBanner" class="reconnect hidden"><span></span> جاري إعادة الاتصال بالمباراة…</div>
+  <main class="shell">
+    <section id="homeView" class="view active">
+      <div class="home-card card">
+        <div class="home-copy">
+          <span class="eyebrow">♟️ شطرنج قياسي • لاعبان</span>
+          <h1>شطرنج <em>القهوة</em></h1>
+          <p>اعمل غرفة خاصة والعب شطرنج كامل بالقوانين القياسية، مع السحب والإفلات، الساعة، سجل النقلات، PGN والشات الصوتي.</p>
+          <label class="field"><span>اسمك</span><input id="playerName" maxlength="18" autocomplete="nickname" placeholder="مثال: محمد" /></label>
+          <div id="avatarPicker" class="avatars"><button data-avatar="😎" class="selected">😎</button><button data-avatar="🧔">🧔</button><button data-avatar="🤠">🤠</button><button data-avatar="👑">👑</button><button data-avatar="🧠">🧠</button></div>
+          <div class="settings-grid">
+            <label><span>الوقت لكل لاعب</span><select id="timeControl"><option value="0">بدون ساعة</option><option value="600000">10 دقائق</option><option value="300000">5 دقائق</option><option value="180000">3 دقائق</option></select></label>
+            <label><span>لونك عند الإنشاء</span><select id="colorChoice"><option value="random">عشوائي</option><option value="white">أبيض</option><option value="black">أسود</option></select></label>
+            <label><span>ألوان الرقعة</span><select id="boardThemeChoice"><option value="classic">كلاسيكي خشبي</option><option value="green">أخضر وبيج</option><option value="blue">أزرق ورمادي</option><option value="coffee">قهوة</option><option value="darkgold">أسود وذهبي</option></select></label>
+            <label><span>ستايل القطع</span><select id="pieceThemeChoice"><option value="classic">كلاسيكي</option><option value="wood">خشبي</option><option value="gold">ذهبي</option><option value="pastel">هادئ</option><option value="mono">أبيض وأسود</option></select></label>
+          </div>
+          <div class="actions"><button id="createRoomBtn" class="btn primary">إنشاء مباراة</button><button id="showJoinBtn" class="btn secondary">دخول بكود</button></div>
+          <div id="joinBox" class="join hidden"><input id="roomCodeInput" inputmode="numeric" maxlength="6" placeholder="كود الغرفة" /><button id="joinRoomBtn" class="btn primary">دخول</button></div>
+          <p id="homeMessage" class="message"></p>
+        </div>
+        <div class="home-art"><div class="board-mini"><span>♜</span><span>♞</span><span>♝</span><span>♛</span><span>♚</span><span>♝</span><span>♞</span><span>♜</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><span>♟</span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♙</span><span>♖</span><span>♘</span><span>♗</span><span>♕</span><span>♔</span><span>♗</span><span>♘</span><span>♖</span></div></div>
+      </div>
+    </section>
+
+    <section id="lobbyView" class="view">
+      <div class="lobby card"><img class="lobby-logo" src="./logo-coffee.png" alt="القهوة" /><span class="ok">✓</span><h2>ترابيزة الشطرنج جاهزة</h2><p>ابعت الكود لصاحبك.</p><div class="room-code"><span>كود الغرفة</span><strong id="lobbyRoomCode">------</strong><button id="copyCodeBtn" class="icon-btn">📋</button></div><button id="shareRoomBtn" class="btn primary wide">مشاركة رابط المباراة</button><div id="lobbyPlayers" class="lobby-players"></div><p id="lobbyStatus" class="waiting">في انتظار اللاعب الثاني…</p><button id="leaveLobbyBtn" class="btn ghost">العودة للقهوة</button></div>
+    </section>
+
+    <section id="gameView" class="view">
+      <div class="game-grid">
+        <aside class="game-side card">
+          <div class="side-title"><b>المباراة</b><small id="roomCodeLabel">------</small></div>
+          <div id="opponentInfo" class="player-card"></div>
+          <div id="opponentClock" class="clock">--:--</div>
+          <div class="captured-wrap"><span>القطع المأخوذة</span><div id="capturedByMe" class="captured"></div></div>
+          <div class="game-buttons"><button id="offerDrawBtn" class="btn small secondary">عرض تعادل</button><button id="resignBtn" class="btn small danger">استسلام</button><button id="shareInGameBtn" class="btn small ghost">مشاركة الكود</button></div>
+        </aside>
+
+        <section class="board-area">
+          <div id="statusBanner" class="status-banner">جاري تجهيز المباراة…</div>
+          <div class="board-shell"><div id="chessBoard" class="chess-board" aria-label="رقعة الشطرنج"></div></div>
+          <div class="under-board"><div id="myInfo" class="player-card"></div><div id="myClock" class="clock">--:--</div></div>
+          <div id="drawOfferBar" class="draw-offer hidden"><span>صاحبك يعرض التعادل 🤝</span><button id="acceptDrawBtn" class="btn small primary">قبول</button><button id="declineDrawBtn" class="btn small ghost">رفض</button></div>
+          <div class="social-row"><button id="chatToggleBtn" class="social-btn">💬 <b>شات</b><i id="chatUnread" class="unread hidden">0</i></button><button id="voiceCallBtn" class="social-btn voice">🎙️ <b id="voiceCallLabel">اتصال</b></button><div class="reactions" id="reactions"><button>😂</button><button>😎</button><button>👏</button><button>🔥</button><button>🤝</button></div></div>
+          <div id="voiceActiveBar" class="voice-bar hidden"><span id="voiceStatusText">جاري توصيل الصوت…</span><button id="voiceMuteBtn">🔇 كتم</button><button id="voiceHangupBtn">📵 إنهاء</button></div>
+          <audio id="remoteAudio" autoplay playsinline></audio>
+        </section>
+
+        <aside class="moves-side card">
+          <div class="moves-head"><div><b>سجل النقلات</b><small id="moveCount">0 نقلة</small></div><button id="livePositionBtn" class="tiny hidden">الحالي</button></div>
+          <div id="movesList" class="moves-list"></div>
+          <div class="captured-wrap"><span>قطع أخذها صاحبك</span><div id="capturedByOpponent" class="captured"></div></div>
+          <button id="downloadPgnBtn" class="btn small secondary wide">تنزيل PGN</button>
+        </aside>
+      </div>
+      <aside id="chatPanel" class="chat-panel card hidden"><div class="chat-head"><b>شات القهوة</b><button id="chatCloseBtn">✕</button></div><div id="chatMessages" class="chat-messages"></div><form id="chatForm"><input id="chatInput" maxlength="180" placeholder="اكتب رسالة…" /><button>إرسال</button></form></aside>
+    </section>
+  </main>
+
+  <footer class="footer"><p>🤍 اللعب للمتعة، فلا تنسَ ذكر الله وأداء الفرائض في أوقاتها.</p><div>تصميم وبرمجة <strong>محمد حسين</strong> — <a href="https://iegy.net/" target="_blank" rel="noopener">iegy.net</a></div></footer>
+
+  <div id="promotionModal" class="modal hidden"><div class="modal-card"><h3>رقّي البيدق</h3><p>اختار القطعة الجديدة</p><div id="promotionChoices" class="promotion-choices"><button data-piece="q">♛</button><button data-piece="r">♜</button><button data-piece="b">♝</button><button data-piece="n">♞</button></div></div></div>
+  <div id="resultModal" class="modal hidden"><div class="modal-card result-card"><div id="resultEmoji" class="result-emoji">🏆</div><h2 id="resultTitle">انتهت المباراة</h2><p id="resultText"></p><div class="modal-actions"><button id="rematchBtn" class="btn primary">مباراة جديدة وتبديل الألوان</button><button id="resultHomeBtn" class="btn ghost">العودة للقهوة</button></div></div></div>
+  <div id="voiceIncomingModal" class="modal hidden"><div class="modal-card"><div class="incoming-mic">🎙️</div><h3>مكالمة صوتية واردة</h3><p><strong id="voiceCallerName">صاحبك</strong> عايز يفتح الاتصال الصوتي.</p><div class="modal-actions"><button id="voiceDeclineBtn" class="btn ghost danger">رفض</button><button id="voiceAcceptBtn" class="btn primary">قبول</button></div></div></div>
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="./chess-app.js?v=7.1.0"></script>
+</body>
+</html>

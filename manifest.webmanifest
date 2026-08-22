@@ -1,34 +1,18 @@
 {
   "id": "./",
-  "name": "دومنو الصحبة",
-  "short_name": "دومنو الصحبة",
-  "description": "لعبة دومينو خاصة لشخصين عبر الويب.",
+  "name": "القهوة — ألعاب الصحبة",
+  "short_name": "القهوة",
+  "description": "منصة ألعاب خاصة للأصحاب: دومينو وشطرنج أونلاين بغرف خاصة.",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#061121",
-  "theme_color": "#081427",
+  "background_color": "#071316",
+  "theme_color": "#0d1e22",
   "icons": [
-    {
-      "src": "./icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
+    {"src":"./icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
   ]
 }

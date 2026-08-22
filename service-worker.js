@@ -1,28 +1,13 @@
-const CACHE = "domino-alsohba-v6-5-1";
-const CORE = [
-  "./", "./index.html", "./styles.css?v=6.5.1", "./app.js?v=6.5.1", "./firebase-config.js?v=6.5.1",
-  "./logo.svg", "./manifest.webmanifest", "./turn-config.js?v=6.5.1",
-  "./assets/domino-place-real.wav?v=6.5.1", "./assets/domino-double-real.wav?v=6.5.1",
-  "./assets/domino-draw-real.wav?v=6.5.1", "./assets/domino-win.wav?v=6.5.1", "./icons/icon-192.png", "./icons/icon-512.png"
+const CACHE="alqahwa-v7-0-0";
+const CORE=[
+  "./","./index.html","./platform.css?v=7.1.0","./platform.js?v=7.1.0",
+  "./domino.html","./domino.css?v=7.1.0","./domino-app.js?v=7.1.0",
+  "./chess.html","./chess.css?v=7.1.0","./chess-app.js?v=7.1.0",
+  "./firebase-config.js?v=7.1.0","./turn-config.js?v=7.1.0","./manifest.webmanifest?v=7.1.0",
+  "./logo-coffee.png","./icons/icon-192.png","./icons/icon-512.png",
+  "./assets/domino-place-real.wav?v=7.1.0","./assets/domino-double-real.wav?v=7.1.0",
+  "./assets/domino-draw-real.wav?v=7.1.0","./assets/domino-win.wav?v=7.1.0"
 ];
-self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).catch(() => {}));
-  self.skipWaiting();
-});
-self.addEventListener("activate", event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
-  self.clients.claim();
-});
-self.addEventListener("fetch", event => {
-  const req = event.request;
-  if (req.method !== "GET") return;
-  const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;
-  event.respondWith(
-    fetch(req).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE).then(cache => cache.put(req, copy)).catch(() => {});
-      return res;
-    }).catch(() => caches.match(req).then(hit => hit || (req.mode === "navigate" ? caches.match("./index.html") : Promise.reject())))
-  );
-});
+self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).catch(()=>{}));self.skipWaiting()});
+self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
+self.addEventListener("fetch",e=>{const r=e.request;if(r.method!=="GET")return;const u=new URL(r.url);if(u.origin!==self.location.origin)return;e.respondWith(fetch(r).then(res=>{const copy=res.clone();caches.open(CACHE).then(c=>c.put(r,copy)).catch(()=>{});return res}).catch(()=>caches.match(r).then(hit=>hit||(r.mode==="navigate"?caches.match("./index.html"):Promise.reject()))))});
