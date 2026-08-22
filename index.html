@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#081427" />
+  <meta name="description" content="دومنو الصحبة — لعبة دومينو خاصة لشخصين عبر الويب." />
+  <title>دومنو الصحبة</title>
+  <link rel="icon" href="./logo.svg" type="image/svg+xml" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-bg"></div>
+
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="دومنو الصحبة">
+      <img src="./logo.svg" alt="" />
+      <div><strong>دومنو الصحبة</strong><span>لعبتك الخاصة مع صاحبك</span></div>
+    </a>
+    <div class="top-actions">
+      <button id="soundBtn" class="icon-btn" type="button" aria-label="الصوت">🔊</button>
+      <span id="connectionBadge" class="badge offline">غير متصل</span>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section id="homeView" class="view active">
+      <div class="hero card">
+        <div class="hero-copy">
+          <span class="eyebrow">لشخصين فقط • بدون تسجيل</span>
+          <h1>اللمة أحلى مع <em>دومنو الصحبة</em></h1>
+          <p>اعمل غرفة، ابعت الكود لصاحبك، وابدأوا اللعب فورًا. الجولة بتتحفظ لحظيًا ولو عملت Refresh ترجع مكانك.</p>
+
+          <div class="name-row">
+            <label for="playerName">اسمك في اللعبة</label>
+            <input id="playerName" maxlength="18" autocomplete="nickname" placeholder="مثال: محمد" />
+          </div>
+
+          <div class="avatar-picker" id="avatarPicker" aria-label="اختر الصورة الرمزية">
+            <button type="button" data-avatar="😎" class="selected">😎</button>
+            <button type="button" data-avatar="🧔">🧔</button>
+            <button type="button" data-avatar="🤠">🤠</button>
+            <button type="button" data-avatar="🕶️">🕶️</button>
+            <button type="button" data-avatar="👑">👑</button>
+          </div>
+
+          <div class="home-actions">
+            <button id="createRoomBtn" class="btn primary" type="button">إنشاء لعبة جديدة</button>
+            <button id="showJoinBtn" class="btn secondary" type="button">دخول بكود غرفة</button>
+          </div>
+
+          <div id="joinBox" class="join-box hidden">
+            <input id="roomCodeInput" inputmode="numeric" maxlength="6" placeholder="كود الغرفة - 6 أرقام" />
+            <button id="joinRoomBtn" class="btn primary" type="button">دخول</button>
+          </div>
+
+          <p id="homeMessage" class="message"></p>
+        </div>
+
+        <div class="hero-art">
+          <div class="big-domino d1"><span>● ● ●</span><span>● ●</span></div>
+          <div class="big-domino d2"><span>●</span><span>● ● ●</span></div>
+          <div class="spark s1">✦</div><div class="spark s2">✦</div>
+          <div class="felt-preview">
+            <span>خصوصية</span><b>1 × 1</b><small>غرفة خاصة</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="features">
+        <article class="mini-card"><b>⚡ لعب لحظي</b><span>كل حركة تظهر فورًا للطرف الآخر.</span></article>
+        <article class="mini-card"><b>🔒 غرفة خاصة</b><span>الكود يكفي، ولا يدخل لاعب ثالث.</span></article>
+        <article class="mini-card"><b>📱 موبايل وكمبيوتر</b><span>واجهة Responsive وضغط مباشر على القطع.</span></article>
+        <article class="mini-card"><b>💾 استرجاع المباراة</b><span>ترجع لنفس الغرفة بعد Refresh.</span></article>
+      </div>
+    </section>
+
+    <section id="lobbyView" class="view">
+      <div class="lobby card">
+        <div class="lobby-logo"><img src="./logo.svg" alt="دومنو الصحبة" /></div>
+        <span class="success-dot">✓</span>
+        <h2>تم إنشاء الغرفة</h2>
+        <p>ابعت الكود أو الرابط لصاحبك.</p>
+        <div class="room-code-wrap">
+          <span>كود الغرفة</span>
+          <strong id="lobbyRoomCode">------</strong>
+          <button id="copyCodeBtn" class="icon-btn" type="button">📋</button>
+        </div>
+        <button id="shareRoomBtn" class="btn primary wide" type="button">مشاركة رابط اللعبة</button>
+        <div id="lobbyPlayers" class="lobby-players"></div>
+        <p id="lobbyStatus" class="waiting">في انتظار اللاعب الثاني…</p>
+        <button id="leaveLobbyBtn" class="btn ghost" type="button">إلغاء والعودة</button>
+      </div>
+    </section>
+
+    <section id="gameView" class="view">
+      <div class="game-layout">
+        <aside class="side-panel score-panel card">
+          <h3>النتيجة</h3>
+          <div id="scoreRows"></div>
+          <div class="round-meta"><span>الجولة</span><b id="roundNo">1</b></div>
+          <div class="target-meta"><span>الهدف</span><b>100 نقطة</b></div>
+          <button id="shareInGameBtn" class="btn small secondary" type="button">مشاركة الكود</button>
+          <button id="leaveGameBtn" class="btn small ghost danger" type="button">مغادرة</button>
+        </aside>
+
+        <section class="table-area">
+          <div id="opponentBar" class="player-bar opponent"></div>
+
+          <div class="table card">
+            <div id="reactionBubble" class="reaction-bubble hidden"></div>
+            <div id="turnBanner" class="turn-banner">جاري تجهيز الجولة…</div>
+            <div id="board" class="board" aria-label="طاولة الدومينو"></div>
+            <button id="stockBtn" class="stock" type="button">
+              <span class="stock-stack">▰<i>▰</i><i>▰</i></span>
+              <b>المخزن</b>
+              <small id="stockCount">0</small>
+            </button>
+          </div>
+
+          <div id="meBar" class="player-bar me"></div>
+          <div id="hand" class="hand" aria-label="قطعك"></div>
+
+          <div class="game-actions">
+            <button id="drawBtn" class="btn secondary" type="button">سحب من المخزن</button>
+            <button id="passBtn" class="btn ghost" type="button">تمرير الدور</button>
+          </div>
+        </section>
+
+        <aside class="side-panel reactions-panel card">
+          <h3>ردود سريعة</h3>
+          <div class="reactions">
+            <button type="button">😎</button><button type="button">😂</button>
+            <button type="button">🔥</button><button type="button">👏</button>
+            <button type="button">😏</button><button type="button">🤝</button>
+          </div>
+          <div class="rules-note">
+            <b>قواعد سريعة</b>
+            <p>7 قطع لكل لاعب. اسحب فقط لو مفيش معاك حركة. لو المخزن خلص ومفيش لعب، مرّر الدور.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="sideModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3>القطعة تنفع في الناحيتين</h3>
+      <p>اختار مكان وضعها.</p>
+      <div class="modal-actions">
+        <button id="playLeftBtn" class="btn secondary" type="button">الطرف الشمال</button>
+        <button id="playRightBtn" class="btn primary" type="button">الطرف اليمين</button>
+      </div>
+      <button id="cancelSideBtn" class="btn ghost" type="button">إلغاء</button>
+    </div>
+  </div>
+
+  <div id="roundModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card result-card">
+      <div id="roundEmoji" class="result-emoji">🏆</div>
+      <h2 id="roundTitle">انتهت الجولة</h2>
+      <p id="roundText"></p>
+      <button id="newRoundBtn" class="btn primary wide" type="button">جولة جديدة</button>
+      <button id="resultHomeBtn" class="btn ghost" type="button">العودة للرئيسية</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

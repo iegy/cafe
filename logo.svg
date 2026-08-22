@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-labelledby="t">
+<title id="t">دومنو الصحبة</title>
+<defs>
+  <linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#ffb116"/><stop offset="1" stop-color="#ffd74f"/></linearGradient>
+  <filter id="s"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity=".35"/></filter>
+</defs>
+<rect width="220" height="220" rx="48" fill="#08182c"/>
+<g filter="url(#s)" transform="translate(33 28) rotate(-8 77 65)">
+ <rect x="18" y="16" width="58" height="118" rx="14" fill="#fff7e8" stroke="#d5c8b5" stroke-width="5"/>
+ <path d="M18 75h58" stroke="#8b8275" stroke-width="4"/>
+ <g fill="#0a213c">
+  <circle cx="36" cy="36" r="5"/><circle cx="58" cy="56" r="5"/><circle cx="36" cy="94" r="5"/><circle cx="58" cy="112" r="5"/>
+ </g>
+ <rect x="84" y="32" width="58" height="118" rx="14" fill="#fff7e8" stroke="#d5c8b5" stroke-width="5"/>
+ <path d="M84 91h58" stroke="#8b8275" stroke-width="4"/>
+ <g fill="#0a213c">
+  <circle cx="102" cy="52" r="5"/><circle cx="124" cy="52" r="5"/><circle cx="113" cy="74" r="5"/>
+  <circle cx="102" cy="108" r="5"/><circle cx="124" cy="130" r="5"/>
+ </g>
+</g>
+<path d="M44 166h132a12 12 0 0 1 12 12v10a12 12 0 0 1-12 12H44a12 12 0 0 1-12-12v-10a12 12 0 0 1 12-12z" fill="url(#g)"/>
+<text x="110" y="190" text-anchor="middle" font-family="Tahoma,Arial,sans-serif" font-size="22" font-weight="700" fill="#392300">دومنو الصحبة</text>
+</svg>
