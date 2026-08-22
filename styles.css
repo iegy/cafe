@@ -53,3 +53,117 @@ h1{font-size:clamp(36px,5vw,64px);line-height:1.15;margin:18px 0 14px;max-width:
  .topbar{height:66px}.brand span{display:none}.brand img{width:42px}.shell{width:min(100% - 16px,1240px);margin-top:12px}.hero-copy{padding:28px 19px}.hero{min-height:auto}.features{grid-template-columns:1fr 1fr}.mini-card{padding:14px}.mini-card span{font-size:10px}.home-actions{display:grid}.home-actions .btn{width:100%}.join-box{display:grid}
  .game-layout{gap:8px}.side-panel{padding:13px}.table{min-height:400px;padding:55px 20px 60px;border-width:6px;border-radius:19px}.board{min-width:470px;min-height:280px;justify-content:flex-start}.tile{width:42px;height:78px}.tile.horizontal{width:78px;height:42px}.pip-grid{width:29px;height:29px}.pip{width:5px;height:5px}.hand{justify-content:flex-start;padding-right:10px}.hand .tile{width:45px;height:84px}.stock{left:10px;bottom:10px;width:72px}.reactions-panel{display:none}.score-panel{grid-template-columns:1fr 1fr}.game-actions .btn{flex:1;padding:10px}.room-code-wrap{grid-template-columns:1fr auto}.room-code-wrap .icon-btn{grid-column:2}.lobby{padding:24px 18px;margin-top:20px}
 }
+
+
+/* ===== Domino Al-Sohba v2: realistic tiles, mobile board, match settings & chat ===== */
+.match-settings{display:grid;grid-template-columns:1.3fr 1fr;gap:10px;max-width:510px;margin:0 0 18px}
+.match-settings label{display:grid;gap:7px}.match-settings span{font-size:12px;color:#c9d8e7}
+.match-settings select{height:50px;border-radius:14px;border:1px solid #244d72;background:#07182c;color:#fff;padding:0 13px;outline:0}
+.match-settings select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(36,198,255,.08)}
+.lobby-rules{margin:12px 0;padding:10px 13px;border-radius:13px;background:rgba(36,198,255,.07);border:1px solid rgba(36,198,255,.2);font-size:12px;color:#bceeff}
+
+/* More physical, ivory domino pieces */
+.tile{
+  position:relative;
+  overflow:hidden;
+  border:1px solid #8f877b;
+  background:
+    linear-gradient(105deg,rgba(255,255,255,.85),rgba(255,255,255,0) 23%),
+    linear-gradient(160deg,#fffdf7 0%,#eee9de 52%,#d4cec1 100%);
+  box-shadow:
+    0 9px 13px rgba(0,0,0,.32),
+    0 2px 0 #a39a8d,
+    inset 1px 1px 0 rgba(255,255,255,.95),
+    inset -2px -3px 5px rgba(70,57,42,.18);
+}
+.tile::before{
+  content:"";position:absolute;inset:3px;border-radius:6px;
+  border:1px solid rgba(111,99,82,.2);box-shadow:inset 0 0 6px rgba(255,255,255,.7);
+  pointer-events:none;z-index:3
+}
+.tile::after{
+  content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;border-radius:50%;
+  transform:translate(-50%,-50%);z-index:4;
+  background:radial-gradient(circle at 35% 30%,#f8f3df 0 18%,#a99673 28%,#493c2e 75%,#211a13 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.35)
+}
+.tile .half{position:relative;z-index:2;border-color:#7d756a}
+.tile.horizontal .half{border-color:#7d756a}
+.pip{
+  background:radial-gradient(circle at 35% 30%,#40546a 0 8%,#101923 35%,#03070b 100%);
+  box-shadow:inset 1px 1px 1px rgba(255,255,255,.22),0 1px 0 rgba(255,255,255,.35)
+}
+.tile.double{filter:saturate(.92)}
+.tile.playable{
+  outline:3px solid #63f5a9;
+  box-shadow:0 0 0 2px rgba(6,35,23,.65),0 0 26px rgba(70,244,156,.5),0 9px 13px rgba(0,0,0,.32)
+}
+
+/* Snake-like board: rows alternate direction and stay inside mobile viewport */
+.board{min-width:0!important;width:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;padding:14px 4px}
+.board-row{display:flex;justify-content:center;align-items:center;gap:2px;width:100%;direction:ltr;min-height:54px}
+.board-row.reverse-flow{direction:rtl}
+.board-row .tile{direction:ltr}
+.board-empty{color:rgba(255,255,255,.58);font-size:13px;padding:40px 0}
+
+/* Chat */
+.chat-fab{
+  position:fixed;left:18px;bottom:18px;z-index:70;min-width:58px;height:58px;border:1px solid #36729e;
+  border-radius:19px;background:linear-gradient(145deg,#0c2b4b,#0a1c32);color:#fff;font-size:24px;
+  box-shadow:0 15px 35px rgba(0,0,0,.35)
+}
+.chat-unread{position:absolute;right:-5px;top:-6px;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:#ff5c6b;color:white;font-size:11px;display:grid;place-items:center;font-weight:900}
+.chat-panel{
+  position:fixed;left:18px;bottom:88px;z-index:69;width:min(360px,calc(100vw - 28px));height:min(520px,68vh);
+  display:grid;grid-template-rows:auto 1fr auto;background:rgba(7,24,44,.98);border:1px solid #2c6089;
+  border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.5);overflow:hidden;backdrop-filter:blur(18px)
+}
+.chat-head{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.chat-head b{display:block}.chat-head small{display:block;color:var(--muted);font-size:10px}
+.chat-head .icon-btn{width:36px;height:36px}
+.chat-messages{padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth}
+.chat-msg{max-width:82%;font-size:12px}.chat-msg small{display:block;font-size:9px;color:var(--muted);margin:0 6px 3px}
+.chat-msg>div{padding:9px 11px;border-radius:14px;line-height:1.65;word-break:break-word}
+.chat-msg.mine{align-self:flex-start}.chat-msg.mine>div{background:linear-gradient(135deg,#157aea,#269dff);border-bottom-left-radius:5px}
+.chat-msg.theirs{align-self:flex-end}.chat-msg.theirs>div{background:#142d48;border:1px solid #274e70;border-bottom-right-radius:5px}
+.chat-empty{margin:auto;color:var(--muted);font-size:12px}
+.chat-form{display:grid;grid-template-columns:1fr auto;gap:7px;padding:10px;border-top:1px solid rgba(255,255,255,.07);background:#081b31}
+.chat-form input{min-width:0;height:45px;border-radius:13px;border:1px solid #285478;background:#061527;color:#fff;padding:0 12px;outline:0}
+.chat-form .btn{min-height:45px;padding:9px 14px;border-radius:13px}
+
+@media(max-width:620px){
+  .shell{margin-bottom:28px}
+  .match-settings{grid-template-columns:1fr 1fr;gap:8px}.match-settings select{height:46px;font-size:11px}
+  .game-layout{display:block}
+  .table-area{width:100%;overflow:hidden}
+  .player-bar{width:100%;max-width:none;margin-bottom:6px;border-radius:14px}
+  .table{
+    width:100%;min-height:430px;max-height:none;overflow:hidden!important;
+    padding:58px 6px 64px!important;border-width:5px!important;border-radius:18px!important;
+  }
+  .turn-banner{top:11px;font-size:11px;max-width:78%;overflow:hidden;text-overflow:ellipsis}
+  .board{min-height:295px!important;padding:6px 2px!important;gap:3px}
+  .board-row{min-height:48px;gap:2px}
+  .board-row .tile.horizontal{width:60px;height:34px;border-radius:6px}
+  .board-row .tile.horizontal.double{width:34px;height:60px;grid-template-columns:none;grid-template-rows:1fr 1fr}
+  .board-row .tile.horizontal.double .half{border-left:0;border-bottom:1.5px solid #7d756a}
+  .board-row .tile.horizontal.double .half:last-child{border-bottom:0}
+  .board-row .pip-grid{width:24px;height:24px}
+  .board-row .pip{width:4.5px;height:4.5px}
+  .hand{width:100%;justify-content:flex-start;gap:4px;padding:9px 8px 14px;scrollbar-width:none}
+  .hand::-webkit-scrollbar{display:none}
+  .hand .tile{width:45px;height:84px;flex:0 0 45px}
+  .hand .pip-grid{width:28px;height:28px}
+  .stock{left:8px;bottom:8px;width:66px;padding:6px;border-radius:12px}
+  .stock-stack{font-size:17px}.stock small{font-size:15px}
+  .game-actions{position:sticky;bottom:6px;z-index:10;padding:5px;border-radius:16px;background:rgba(6,17,33,.84);backdrop-filter:blur(10px)}
+  .score-panel{margin-top:10px;border-radius:18px}
+  .chat-fab{left:10px;bottom:10px;width:52px;min-width:52px;height:52px;border-radius:17px}
+  .chat-panel{left:7px;right:7px;bottom:69px;width:auto;height:min(470px,66vh);border-radius:19px}
+  .chat-form{grid-template-columns:minmax(0,1fr) auto}
+}
+@media(max-width:390px){
+  .features{grid-template-columns:1fr}
+  .match-settings{grid-template-columns:1fr}
+  .board-row .tile.horizontal{width:57px}
+}

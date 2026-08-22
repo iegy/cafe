@@ -48,6 +48,25 @@
             <button type="button" data-avatar="👑">👑</button>
           </div>
 
+          <div class="match-settings">
+            <label>
+              <span>نظام المباراة</span>
+              <select id="matchMode">
+                <option value="points" selected>بنطات / نقاط تراكمية</option>
+                <option value="single">جولة واحدة</option>
+              </select>
+            </label>
+            <label id="targetWrap">
+              <span>اللعب لحد</span>
+              <select id="targetScore">
+                <option value="51">51 نقطة</option>
+                <option value="101">101 نقطة</option>
+                <option value="151" selected>151 نقطة</option>
+                <option value="201">201 نقطة</option>
+              </select>
+            </label>
+          </div>
+
           <div class="home-actions">
             <button id="createRoomBtn" class="btn primary" type="button">إنشاء لعبة جديدة</button>
             <button id="showJoinBtn" class="btn secondary" type="button">دخول بكود غرفة</button>
@@ -92,6 +111,7 @@
         </div>
         <button id="shareRoomBtn" class="btn primary wide" type="button">مشاركة رابط اللعبة</button>
         <div id="lobbyPlayers" class="lobby-players"></div>
+        <div id="lobbyRules" class="lobby-rules">نظام المباراة: 151 نقطة</div>
         <p id="lobbyStatus" class="waiting">في انتظار اللاعب الثاني…</p>
         <button id="leaveLobbyBtn" class="btn ghost" type="button">إلغاء والعودة</button>
       </div>
@@ -103,7 +123,7 @@
           <h3>النتيجة</h3>
           <div id="scoreRows"></div>
           <div class="round-meta"><span>الجولة</span><b id="roundNo">1</b></div>
-          <div class="target-meta"><span>الهدف</span><b>100 نقطة</b></div>
+          <div class="target-meta"><span>النظام</span><b id="targetScoreLabel">151 نقطة</b></div>
           <button id="shareInGameBtn" class="btn small secondary" type="button">مشاركة الكود</button>
           <button id="leaveGameBtn" class="btn small ghost danger" type="button">مغادرة</button>
         </aside>
@@ -145,6 +165,21 @@
         </aside>
       </div>
     </section>
+
+    <button id="chatToggleBtn" class="chat-fab hidden" type="button" aria-label="فتح الشات">
+      💬 <span id="chatUnread" class="chat-unread hidden">0</span>
+    </button>
+    <aside id="chatPanel" class="chat-panel hidden" aria-label="شات المباراة">
+      <div class="chat-head">
+        <div><b>شات الصحبة</b><small>رسائل داخل الغرفة فقط</small></div>
+        <button id="chatCloseBtn" class="icon-btn" type="button">✕</button>
+      </div>
+      <div id="chatMessages" class="chat-messages"></div>
+      <form id="chatForm" class="chat-form">
+        <input id="chatInput" maxlength="180" autocomplete="off" placeholder="اكتب رسالة…" />
+        <button class="btn primary" type="submit">إرسال</button>
+      </form>
+    </aside>
   </main>
 
   <div id="sideModal" class="modal hidden" role="dialog" aria-modal="true">
