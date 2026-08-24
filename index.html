@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0d1e22" />
-  <meta name="description" content="القهوة — منصة ألعاب الصحبة: دومينو، شطرنج، لودو، طاولة وXO أونلاين بغرف خاصة." />
+  <meta name="description" content="القهوة — منصة ألعاب القهوة: دومينو، شطرنج وXO أونلاين، مع 2048 وSudoku كلعب فردي." />
   <title>القهوة — ألعاب الصحبة</title>
-  <link rel="icon" href="./logo-coffee.png?v=8.0.0" />
-  <link rel="manifest" href="./manifest.webmanifest?v=8.0.0" />
+  <link rel="icon" href="./logo-coffee.png?v=8.1.0" />
+  <link rel="manifest" href="./manifest.webmanifest?v=8.1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./platform.css?v=8.0.0" />
+  <link rel="stylesheet" href="./platform.css?v=8.1.0" />
 </head>
 <body>
   <div class="ambient"></div>
@@ -31,7 +31,7 @@
       <div class="hero-copy">
         <span class="kicker">☕ اللمة القديمة بروح أونلاين</span>
         <h1>اختار لعبتك، واعزم صاحبك على <em>القهوة</em></h1>
-        <p>غرف خاصة، لعب لحظي، شات ومكالمة صوتية، وتجربة موبايل معمولة علشان تحس إنكم قاعدين على نفس الترابيزة.</p>
+        <p>ألعاب ثنائية بغرف خاصة وشات وصوت، ومعها ألعاب فردية سريعة تحفظ تقدمك على جهازك. كلها مصممة للموبايل أولًا.</p>
         <div class="join-card">
           <label for="roomCode">عندك كود غرفة؟</label>
           <div><input id="roomCode" inputmode="numeric" maxlength="6" placeholder="اكتب 6 أرقام" /><button id="joinBtn" type="button">دخول</button></div>
@@ -54,29 +54,29 @@
           <div class="game-copy"><small>1 × 1</small><h3>شطرنج القهوة</h3><p>شطرنج كامل بالقوانين القياسية، سحب وإفلات، كش ومات، ترقية، تبييت، ساعة وPGN.</p></div>
           <span class="play-pill">ابدأ اللعب ←</span>
         </a>
-        <a class="game-card ludo-card" href="./ludo.html">
-          <div class="game-icon ludo-icon"><i></i><i></i><i></i><i></i><b>🎲</b></div>
-          <div class="game-copy"><small>1 × 1</small><h3>لودو القهوة</h3><p>أربع أحجار لكل لاعب، زهر، أمان وأكل ودخول البيت بتصميم سريع ومناسب للموبايل.</p></div>
-          <span class="play-pill">ابدأ اللعب ←</span>
-        </a>
-        <a class="game-card backgammon-card" href="./backgammon.html">
-          <div class="game-icon bg-icon"><span>●</span><span>○</span><b>⚄</b></div>
-          <div class="game-copy"><small>1 × 1</small><h3>طاولة القهوة</h3><p>Backgammon بقواعد الحركة، الأكل، البار، إخراج الأحجار والزهر المزدوج.</p></div>
-          <span class="play-pill">ابدأ اللعب ←</span>
-        </a>
         <a class="game-card xo-card" href="./xo.html">
           <div class="game-icon xo-icon"><b>×</b><i>○</i></div>
           <div class="game-copy"><small>1 × 1</small><h3>XO القهوة</h3><p>3×3 الكلاسيكية أو 5×5 للفوز بأربع علامات، سريعة ومثالية للموبايل.</p></div>
+          <span class="play-pill">ابدأ اللعب ←</span>
+        </a>
+        <a class="game-card game2048-card" href="./2048.html">
+          <div class="game-icon icon2048"><b>2</b><b>0</b><b>4</b><b>8</b></div>
+          <div class="game-copy"><small>فردي</small><h3>2048 القهوة</h3><p>دمج أرقام سريع بالسحب، أصوات ومؤثرات، أفضل نتيجة وحفظ تلقائي للتقدم.</p></div>
+          <span class="play-pill">ابدأ اللعب ←</span>
+        </a>
+        <a class="game-card sudoku-card" href="./sudoku.html">
+          <div class="game-icon sudoku-icon"><span>8</span><span>3</span><span>5</span><span>1</span><span>9</span><span>6</span><span>7</span><span>4</span><span>2</span></div>
+          <div class="game-copy"><small>فردي</small><h3>Sudoku القهوة</h3><p>ألغاز من السهل للخبير، ملاحظات وتلميحات ومؤقت وأفضل وقت مع حفظ تلقائي.</p></div>
           <span class="play-pill">ابدأ اللعب ←</span>
         </a>
       </div>
     </section>
 
     <section class="platform-features">
-      <article><b>🔒 غرفة خاصة</b><span>كود واحد يكفي للعب مع صاحبك.</span></article>
-      <article><b>🎙️ صوت وشات</b><span>نفس التواصل داخل كل الألعاب.</span></article>
-      <article><b>📱 موبايل أولًا</b><span>تحكم باللمس والسحب بدل القوائم الثقيلة.</span></article>
-      <article><b>⚡ لحظي</b><span>Firebase يزامن الحركة بين الجهازين فورًا.</span></article>
+      <article><b>🔒 غرف خاصة</b><span>دومينو وشطرنج وXO بكود خاص لكل مباراة.</span></article>
+      <article><b>🎙️ تواصل مباشر</b><span>شات وصوت داخل الألعاب الثنائية.</span></article>
+      <article><b>✨ صوت ومؤثرات</b><span>الألعاب الجديدة كلها بمؤثرات وصوت قابل للإيقاف.</span></article>
+      <article><b>📱 موبايل أولًا</b><span>تحكم باللمس وحفظ محلي للألعاب الفردية.</span></article>
     </section>
   </main>
 
@@ -85,6 +85,6 @@
     <div>تصميم وبرمجة <strong>محمد حسين</strong> — <a href="https://iegy.net/" target="_blank" rel="noopener noreferrer">iegy.net</a></div>
   </footer>
   <div id="toast" class="toast hidden"></div>
-  <script type="module" src="./platform.js?v=8.0.0"></script>
+  <script type="module" src="./platform.js?v=8.1.0"></script>
 </body>
 </html>

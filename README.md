@@ -31,3 +31,10 @@
 - إضافة XO بنمط 3×3 ونمط 5×5 (أربع علامات للفوز).
 - الألعاب الجديدة تستخدم نفس Firebase rooms ونفس أكواد الغرف، مع شات وصوت WebRTC/TURN.
 - تحسين الصفحة الرئيسية لتعرض 5 ألعاب.
+
+
+## v8.1 — Solo Games Edition
+- Removed Ludo and Backgammon.
+- Kept and upgraded XO with X/O move sounds, win/draw audio, vibration and visual effects.
+- Added 2048 as a fully local single-player game with swipe controls, undo, best score, autosave, audio and effects.
+- Added Sudoku as a fully local single-player game with difficulty levels, notes, hints, timer, pause, autosave, best times, audio and completion effects.

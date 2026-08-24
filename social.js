@@ -1,5 +1,5 @@
 import { ref, set, update, remove, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { turnConfig } from "./turn-config.js?v=8.0.0";
+import { turnConfig } from "./turn-config.js?v=8.1.0";
 
 const $=id=>document.getElementById(id);
 export function createSocial({db,state,getProfile,toast}){
