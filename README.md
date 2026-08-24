@@ -18,7 +18,16 @@
 ارفع كل الملفات والمجلدات إلى نفس مسار GitHub Pages. لا تغيّر `firebase-config.js` أو `turn-config.js` إلا عند تدوير مفاتيح الخدمات.
 
 
-## Update 7.4.0
+## Update 8.0.0
 - Chess now uses custom SVG piece sets (Classic, Slate, Wood, Royal).
 - Piece theme can be changed live during play.
 - Improved mobile presentation for chess pieces, promotion dialog, and side panels.
+
+
+## v8.0 — Social Games Expansion
+- كل الألعاب لاعبان فقط.
+- إضافة Ludo ثنائية اللاعبين مع 4 أحجار، زهر، أمان، أكل، بيت ورمية إضافية.
+- إضافة Backgammon/الطاولة بقواعد الحركة، البار، الأكل، إخراج الأحجار والدبل.
+- إضافة XO بنمط 3×3 ونمط 5×5 (أربع علامات للفوز).
+- الألعاب الجديدة تستخدم نفس Firebase rooms ونفس أكواد الغرف، مع شات وصوت WebRTC/TURN.
+- تحسين الصفحة الرئيسية لتعرض 5 ألعاب.
