@@ -3,8 +3,8 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import {
   getDatabase, ref, set, get, update, onValue, runTransaction, remove, onDisconnect
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig } from "./firebase-config.js?v=8.1.0";
-import { turnConfig } from "./turn-config.js?v=8.1.0";
+import { firebaseConfig } from "./firebase-config.js?v=8.2.0";
+import { turnConfig } from "./turn-config.js?v=8.2.0";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -41,7 +41,9 @@ const els = {
   historyPanel:$("historyPanel"), historyList:$("historyList"), clearHistoryBtn:$("clearHistoryBtn"),
   installAppBtn:$("installAppBtn"), tableThemeBtn:$("tableThemeBtn"), reconnectBanner:$("reconnectBanner"),
   faithReminderToast:$("faithReminderToast"), faithReminderCloseBtn:$("faithReminderCloseBtn"),
-  roundScoreline:$("roundScoreline"), roundProgress:$("roundProgress"), matchStats:$("matchStats")
+  roundScoreline:$("roundScoreline"), roundProgress:$("roundProgress"), matchStats:$("matchStats"),
+  startSoloBtn:$("startSoloBtn"), soloDifficultyCards:$("soloDifficultyCards"), soloLevelBadge:$("soloLevelBadge"), soloStats:$("soloStats"),
+  soloThinking:$("soloThinking"), soloThinkingLevel:$("soloThinkingLevel")
 };
 
 const state = {
@@ -52,7 +54,8 @@ const state = {
   voiceUnsub:null, voiceSignalReady:false, pendingIce:[], seenIce:new Set(), remoteDescriptionSet:false,
   voiceMuted:false, processingVoice:false, dbConnected:false, everConnected:false, installPrompt:null,
   lastSavedMatchKey:null, lastMoveAt:0, roundRevealTimer:null, manualHandOrder:[], suppressTileClickUntil:0,
-  dragPlayActive:false, dragTargetSide:null, dragGhost:null, autoTurnTimer:null, autoTurnBusy:false
+  dragPlayActive:false, dragTargetSide:null, dragGhost:null, autoTurnTimer:null, autoTurnBusy:false,
+  solo:false, soloDifficulty:"medium", botUid:"domino-computer", botTimer:null, botBusy:false, soloRecordedKey:null
 };
 
 function setView(name){
@@ -243,7 +246,7 @@ const soundBuffers={};
 async function preloadSounds(){
   try{
     const ac=audioContext();
-    for(const [kind,url] of Object.entries({play:"./assets/domino-place-real.wav?v=8.1.0",double:"./assets/domino-double-real.wav?v=8.1.0",draw:"./assets/domino-draw-real.wav?v=8.1.0",win:"./assets/domino-win.wav?v=8.1.0"})){
+    for(const [kind,url] of Object.entries({play:"./assets/domino-place-real.wav?v=8.2.0",double:"./assets/domino-double-real.wav?v=8.2.0",draw:"./assets/domino-draw-real.wav?v=8.2.0",win:"./assets/domino-win.wav?v=8.2.0"})){
       if(soundBuffers[kind]) continue;
       const res=await fetch(url); if(!res.ok) continue;
       soundBuffers[kind]=await ac.decodeAudioData(await res.arrayBuffer());
@@ -304,7 +307,7 @@ async function ensureAuth(){
   await signInAnonymously(auth); state.uid=auth.currentUser.uid;
 }
 
-onAuthStateChanged(auth,u=>{state.uid=u?.uid||null;if(!u)updateReconnectUi(false);});
+onAuthStateChanged(auth,u=>{if(!state.solo)state.uid=u?.uid||null;if(!u&&!state.solo)updateReconnectUi(false);});
 onValue(ref(db,".info/connected"),snap=>updateReconnectUi(snap.val()===true));
 
 function newDeck(){
@@ -367,7 +370,97 @@ function applyRulesPreset(preset,save=true){
   if(save) localStorage.setItem("domino_rules_preset",preset);
 }
 
+
+const SOLO_LEVELS={
+  easy:{label:"سهل",avatar:"🙂",think:[850,1350],desc:"يلعب ببساطة وبدون تخطيط عميق"},
+  medium:{label:"متوسط",avatar:"😎",think:[700,1100],desc:"يوازن بين التخلص من النقاط والمرونة"},
+  hard:{label:"صعب",avatar:"🧠",think:[600,950],desc:"يراقب الأرقام الظاهرة ويحاول التضييق عليك"},
+  expert:{label:"خبير",avatar:"👑",think:[760,1200],desc:"يقدّر احتمالات القطع غير المرئية ويخطط للنقلة التالية"}
+};
+function soloLevel(){return SOLO_LEVELS[state.soloDifficulty]||SOLO_LEVELS.medium}
+function soloLocalUid(){let id=localStorage.getItem("domino_solo_uid");if(!id){id=`solo_${globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2)}`;localStorage.setItem("domino_solo_uid",id)}return id}
+function getSoloStats(){try{return JSON.parse(localStorage.getItem("domino_solo_stats")||"{}")||{}}catch{return{}}}
+function renderSoloStats(){
+  if(!els.soloStats)return;const all=getSoloStats(),x=all[state.soloDifficulty]||{played:0,wins:0,losses:0,streak:0,bestStreak:0};
+  if(!x.played){els.soloStats.innerHTML='<span>أول مباراة على هذا المستوى</span>';return}
+  const rate=Math.round((x.wins/x.played)*100);els.soloStats.innerHTML=`<span><b>${x.wins}</b> فوز</span><span><b>${x.losses}</b> خسارة</span><span><b>${rate}%</b> نسبة فوز</span><span><b>${x.bestStreak||0}</b> أفضل سلسلة</span>`;
+}
+function selectSoloDifficulty(level,save=true){
+  state.soloDifficulty=SOLO_LEVELS[level]?level:"medium";if(save)localStorage.setItem("domino_solo_difficulty",state.soloDifficulty);
+  els.soloDifficultyCards?.querySelectorAll(".solo-difficulty").forEach(b=>{const on=b.dataset.level===state.soloDifficulty;b.classList.toggle("selected",on);b.setAttribute("aria-checked",on?"true":"false")});
+  if(els.soloLevelBadge)els.soloLevelBadge.textContent=soloLevel().label;renderSoloStats();
+}
+function recordSoloMatch(room){
+  if(!state.solo||room.status!=="matchOver"||!room.game?.endedAt)return;const key=`${state.soloDifficulty}_${room.game.endedAt}`;if(state.soloRecordedKey===key)return;state.soloRecordedKey=key;
+  const all=getSoloStats(),x=all[state.soloDifficulty]||{played:0,wins:0,losses:0,streak:0,bestStreak:0};const won=room.game.matchWinnerUid===state.uid;
+  x.played++;if(won){x.wins++;x.streak=(x.streak||0)+1;x.bestStreak=Math.max(x.bestStreak||0,x.streak)}else{x.losses++;x.streak=0}all[state.soloDifficulty]=x;localStorage.setItem("domino_solo_stats",JSON.stringify(all));renderSoloStats();
+}
+function soloSettings(){return{rulesPreset:els.rulesPreset?.value||"standard",matchMode:els.matchMode?.value||"points",targetScore:Number(els.targetScore?.value||151),starterRule:els.starterRule?.value||"winner",blockedScoring:els.blockedScoring?.value||"difference"}}
+function buildSoloRound(room,previousWinnerUid=null,resetScores=false){
+  const deck=shuffle(newDeck()),human=state.uid,bot=state.botUid;if(resetScores){room.players[human].score=0;room.players[bot].score=0;room.stats={rounds:0,blockedRounds:0,roundWins:{},biggestRoundPoints:0,biggestRoundUid:""}}
+  const hands={[human]:deck.slice(0,7),[bot]:deck.slice(7,14)},round=resetScores?1:(room.game?.round||0)+1,fixed=Math.random()<.5?human:bot;
+  const starter=chooseStarterByRules(hands,room,fixed,previousWinnerUid);room.status="playing";room.stats=room.stats||{};room.stats.rounds=round;
+  room.game={round,turn:starter,board:[],stock:deck.slice(14),hands,passes:0,startedAt:Date.now(),lastMove:null};return room;
+}
+function startSoloGame(){
+  clearAutoTurn();clearBotTurn();saveProfile();localStorage.setItem("domino_rules_preset",els.rulesPreset?.value||"standard");localStorage.setItem("domino_match_mode",els.matchMode?.value||"points");localStorage.setItem("domino_target_score",els.targetScore?.value||"151");
+  if(!state.uid||String(state.uid).startsWith("solo_"))state.uid=soloLocalUid();state.solo=true;state.roomCode=`solo-${state.soloDifficulty}`;localStorage.removeItem("domino_room");state.roundModalShownFor=null;state.soloRecordedKey=null;
+  const p=getProfile(),level=soloLevel();let room={hostUid:state.uid,guestUid:state.botUid,status:"playing",gameType:"domino-solo",players:{[state.uid]:{name:p.name,avatar:p.avatar,score:0,connected:true},[state.botUid]:{name:`كمبيوتر القهوة • ${level.label}`,avatar:level.avatar,score:0,connected:true,computer:true}},settings:soloSettings(),stats:{rounds:0,blockedRounds:0,roundWins:{},biggestRoundPoints:0,biggestRoundUid:""}};
+  room=buildSoloRound(room,null,true);state.room=room;state.lastBoardCount=null;state.lastBoardRound=null;document.body.classList.add("solo-mode");els.gameLayout?.classList.add("solo-game");setView("game");renderGame(room);dominoSound("draw");toast(`🤖 بدأت ضد كمبيوتر القهوة — مستوى ${level.label}`);
+}
+function canonicalTile(t){const [a,b]=String(t).split("-").map(Number);return a<=b?`${a}-${b}`:`${b}-${a}`}
+function botVisibleUnseen(room,botHand){
+  const seen=new Set([...botHand,...normalizeTiles(room.game.board)].map(canonicalTile));return newDeck().filter(t=>!seen.has(canonicalTile(t)));
+}
+function legalBotActions(hand,board){
+  const actions=[];for(let i=0;i<hand.length;i++){const t=hand[i];if(!normalizeTiles(board).length){actions.push({index:i,tile:t,side:"right"});continue}if(canPlaySide(t,board,"left"))actions.push({index:i,tile:t,side:"left"});if(canPlaySide(t,board,"right"))actions.push({index:i,tile:t,side:"right"})}return actions;
+}
+function boardAfterAction(board,a){const oriented=orientTile(a.tile,board,a.side),b=normalizeTiles(board);return a.side==="left"?[oriented,...b]:[...b,oriented]}
+function countWithNumber(tiles,n){return tiles.reduce((c,t)=>{const [a,b]=t.split("-").map(Number);return c+(a===n||b===n?1:0)},0)}
+function botActionScore(room,hand,a,level){
+  const next=boardAfterAction(room.game.board,a),ends=boardEnds(next),remain=hand.filter((_,i)=>i!==a.index),unseen=botVisibleUnseen(room,hand),[x,y]=a.tile.split("-").map(Number);let score=pips(a.tile)*1.25+(x===y?2.5:0);
+  const ownFlex=remain.filter(t=>canPlay(t,next)).length;score+=ownFlex*2.2;
+  if(level==="medium")return score+(Math.random()*5-2.5);
+  const enemyOptions=unseen.filter(t=>canPlay(t,next)).length;score+=(unseen.length-enemyOptions)*0.35;score+=Math.max(0,5-countWithNumber(unseen,ends.left))*0.55;score+=Math.max(0,5-countWithNumber(unseen,ends.right))*0.55;
+  const ownEndCoverage=countWithNumber(remain,ends.left)+countWithNumber(remain,ends.right);score+=ownEndCoverage*.8;
+  if(level==="hard")return score+(Math.random()*2-1);
+  // Expert: estimate opponent replies from all still-unseen tiles, without peeking at the human hand or stock.
+  let responseRisk=0,samples=0;for(const t of unseen){if(!canPlay(t,next))continue;for(const side of ["left","right"]){if(!canPlaySide(t,next,side))continue;const after=boardAfterAction(next,{tile:t,side}),ourReplies=remain.filter(q=>canPlay(q,after)).length;responseRisk+=(ourReplies?0:2.8)+(pips(t)*.025);samples++}}
+  if(samples)score-=responseRisk/samples;else score+=4.5;
+  const pipBurden=remain.reduce((n,t)=>n+pips(t),0);score-=pipBurden*.018;return score+(Math.random()*.55-.275);
+}
+function chooseBotAction(room){
+  const hand=normalizeTiles(room.game.hands?.[state.botUid]),actions=legalBotActions(hand,room.game.board);if(!actions.length)return null;if(state.soloDifficulty==="easy")return actions[Math.floor(Math.random()*actions.length)];
+  return actions.map(a=>({a,s:botActionScore(room,hand,a,state.soloDifficulty)})).sort((u,v)=>v.s-u.s)[0].a;
+}
+function clearBotTurn(){clearTimeout(state.botTimer);state.botTimer=null;state.botBusy=false;els.soloThinking?.classList.add("hidden")}
+function scheduleBotTurn(extraDelay=null){
+  if(!state.solo||!state.room||state.room.status!=="playing"||state.room.game?.turn!==state.botUid||state.botTimer||state.botBusy)return;const meta=soloLevel(),delay=extraDelay??(meta.think[0]+Math.random()*(meta.think[1]-meta.think[0]));
+  els.soloThinking?.classList.remove("hidden");if(els.soloThinkingLevel)els.soloThinkingLevel.textContent=`المستوى ${meta.label}`;state.botTimer=setTimeout(()=>{state.botTimer=null;runBotTurn()},delay);
+}
+function localPlayFor(uid,index,tile,side){
+  const room=state.room;if(!room||room.status!=="playing"||room.game?.turn!==uid)return false;const hand=normalizeTiles(room.game.hands?.[uid]);if(hand[index]!==tile){index=hand.indexOf(tile);if(index<0)return false}if(!canPlaySide(tile,room.game.board,side))return false;
+  const oriented=orientTile(tile,room.game.board,side),board=normalizeTiles(room.game.board);room.game.board=side==="left"?[oriented,...board]:[...board,oriented];room.game.lastMove={tile:oriented,side,by:uid,at:Date.now()};hand.splice(index,1);room.game.hands[uid]=hand;room.game.passes=0;const opp=playerIds(room).find(x=>x!==uid);
+  if(!hand.length){const oppHand=normalizeTiles(room.game.hands?.[opp]),pts=oppHand.reduce((n,t)=>n+pips(t),0);applyRoundOutcome(room,uid,pts,"empty")}else room.game.turn=opp;state.room=room;return true;
+}
+function localDrawFor(uid){
+  const room=state.room;if(!room||room.status!=="playing"||room.game?.turn!==uid)return false;const hand=normalizeTiles(room.game.hands?.[uid]);if(hand.some(t=>canPlay(t,room.game.board)))return false;const stock=normalizeTiles(room.game.stock);if(!stock.length)return false;const pick=Math.floor(Math.random()*stock.length),[drawn]=stock.splice(pick,1);hand.push(drawn);room.game.hands[uid]=hand;room.game.stock=stock;room.game.passes=0;room.game.lastDraw={tile:drawn,by:uid,at:Date.now()};state.room=room;return true;
+}
+function localPassFor(uid){
+  const room=state.room;if(!room||room.status!=="playing"||room.game?.turn!==uid)return false;const hand=normalizeTiles(room.game.hands?.[uid]),stock=normalizeTiles(room.game.stock);if(stock.length||hand.some(t=>canPlay(t,room.game.board)))return false;room.game.passes=(room.game.passes||0)+1;const opp=playerIds(room).find(x=>x!==uid);
+  if(room.game.passes>=2){const mySum=hand.reduce((n,t)=>n+pips(t),0),oppHand=normalizeTiles(room.game.hands?.[opp]),oppSum=oppHand.reduce((n,t)=>n+pips(t),0);if(mySum===oppSum)applyRoundOutcome(room,"draw",0,"blocked");else{const w=mySum<oppSum?uid:opp,losingSum=Math.max(mySum,oppSum),pts=(room.settings?.blockedScoring||"difference")==="loserTotal"?losingSum:Math.abs(mySum-oppSum);applyRoundOutcome(room,w,pts,"blocked")}}else room.game.turn=opp;state.room=room;return true;
+}
+function runBotTurn(){
+  if(!state.solo||!state.room||state.room.status!=="playing"||state.room.game?.turn!==state.botUid)return clearBotTurn();state.botBusy=true;els.soloThinking?.classList.remove("hidden");
+  const hand=normalizeTiles(state.room.game.hands?.[state.botUid]),action=chooseBotAction(state.room);let did=false;
+  if(action){did=localPlayFor(state.botUid,action.index,action.tile,action.side);if(did){try{navigator.vibrate?.(12)}catch{}}}
+  else if(normalizeTiles(state.room.game.stock).length){did=localDrawFor(state.botUid);if(did)dominoSound("draw")}
+  else did=localPassFor(state.botUid);
+  state.botBusy=false;state.botTimer=null;renderGame(state.room);if(did&&state.room.status==="playing"&&state.room.game.turn===state.botUid)scheduleBotTurn(action?450:520);
+}
+
 async function createRoom(){
+  state.solo=false;clearBotTurn();document.body.classList.remove("solo-mode");els.gameLayout?.classList.remove("solo-game");
   els.homeMessage.textContent="";
   const p=getProfile(); if(!p.name){els.homeMessage.textContent="اكتب اسمك الأول.";return;}
   saveProfile();
@@ -399,6 +492,7 @@ async function createRoom(){
 }
 
 async function joinRoom(code){
+  state.solo=false;clearBotTurn();document.body.classList.remove("solo-mode");els.gameLayout?.classList.remove("solo-game");
   code=(code||"").trim();
   if(!/^\d{6}$/.test(code)){els.homeMessage.textContent="كود الغرفة لازم يكون 6 أرقام.";return;}
   saveProfile(); await ensureAuth();
@@ -420,6 +514,7 @@ async function joinRoom(code){
 }
 
 async function enterRoom(code){
+  state.solo=false;clearBotTurn();document.body.classList.remove("solo-mode");els.gameLayout?.classList.remove("solo-game");
   state.roomCode=code; localStorage.setItem("domino_room",code);
   const presence=ref(db,`rooms/${code}/players/${state.uid}/connected`);
   await set(presence,true); onDisconnect(presence).set(false);
@@ -501,10 +596,11 @@ function renderGame(room){
     els.mobileTargetLabel.textContent=mode==="single"?"جولة واحدة":`إلى ${target}`;
   }
   els.meBar.innerHTML=playerBarHtml(me,myHand.length,"أنت");
-  els.opponentBar.innerHTML=playerBarHtml(op,oppHand.length,"صاحبك");
+  els.opponentBar.innerHTML=playerBarHtml(op,oppHand.length,state.solo?`كمبيوتر • ${soloLevel().label}`:"صاحبك");
   const myTurn=g.turn===state.uid && room.status==="playing";
-  els.turnBanner.textContent=room.status==="matchOver"?"انتهت المباراة":room.status==="roundOver"?"انتهت الجولة":myTurn?"دورك الآن":"دور صاحبك";
-  els.turnBanner.style.color=myTurn?"#6dffad":"#fff";
+  const botTurn=state.solo&&g.turn===state.botUid&&room.status==="playing";
+  els.turnBanner.textContent=room.status==="matchOver"?"انتهت المباراة":room.status==="roundOver"?"انتهت الجولة":myTurn?"دورك الآن":botTurn?"دور الكمبيوتر":"دور صاحبك";
+  els.turnBanner.style.color=myTurn?"#6dffad":botTurn?"#f4c96b":"#fff";els.turnBanner.classList.toggle("bot-turn",botTurn);
 
   const boardCount=normalizeTiles(g.board).length;
   if(state.lastBoardRound===g.round && state.lastBoardCount!==null && boardCount>state.lastBoardCount){
@@ -535,9 +631,8 @@ function renderGame(room){
   if(room.reaction && room.reaction.at>state.lastReactionAt){
     state.lastReactionAt=room.reaction.at; showReaction(room.reaction.emoji);
   }
-  renderChat(room);
-  els.socialDock.classList.remove("hidden");
-  updateVoiceUi();
+  if(state.solo){els.socialDock.classList.add("hidden");els.chatPanel.classList.add("hidden");els.gameLayout?.classList.remove("chat-open");els.shareInGameBtn?.classList.add("hidden");els.mobileShareBtn?.classList.add("hidden");scheduleBotTurn();}
+  else{renderChat(room);els.socialDock.classList.remove("hidden");els.shareInGameBtn?.classList.remove("hidden");els.mobileShareBtn?.classList.remove("hidden");updateVoiceUi();clearBotTurn();}
   maybeShowFaithReminder(room);
   if(room.status==="roundOver"||room.status==="matchOver") showRoundResult(room);
   else { els.roundModal.classList.add("hidden"); state.roundModalShownFor=null; }
@@ -771,6 +866,7 @@ function applyRoundOutcome(room,winnerUid,points,reason){
 
 async function playTile(index,tile,side){
   els.sideModal.classList.add("hidden");clearDropTargets();
+  if(state.solo){const ok=localPlayFor(state.uid,index,tile,side);if(ok){state.pendingTile=null;renderGame(state.room)}else toast("النقلة غير متاحة.");return;}
   const rr=roomRef();
   const result=await runTransaction(rr,room=>{
     if(!room||room.status!=="playing"||room.game?.turn!==state.uid)return;
@@ -794,6 +890,7 @@ async function playTile(index,tile,side){
 }
 
 async function drawTile(auto=false){
+  if(state.solo){const ok=localDrawFor(state.uid);if(ok){dominoSound("draw");renderGame(state.room)}else if(!auto)toast("السحب غير متاح حاليًا.");return;}
   const rr=roomRef();
   const randomWord=(globalThis.crypto?.getRandomValues?.(new Uint32Array(1))?.[0] ?? Math.floor(Math.random()*4294967296));
   const randomUnit=randomWord/4294967296;
@@ -812,6 +909,7 @@ async function drawTile(auto=false){
 }
 
 async function passTurn(auto=false){
+  if(state.solo){const ok=localPassFor(state.uid);if(ok)renderGame(state.room);else if(!auto)toast("التمرير غير متاح حاليًا.");return;}
   const rr=roomRef();
   const result=await runTransaction(rr,room=>{
     if(!room||room.status!=="playing"||room.game?.turn!==state.uid)return;
@@ -845,8 +943,8 @@ function showRoundResult(room){
   els.roundProgress.innerHTML=mode==="single"?"":ids.map(uid=>{const score=room.players?.[uid]?.score||0,pct=Math.max(0,Math.min(100,Math.round(score/target*100)));return `<div class="progress-row"><span>${escapeHtml(room.players?.[uid]?.name||"لاعب")}</span><i><em style="width:${pct}%"></em></i><small>${score}/${target}</small></div>`}).join("");
   const stats=room.stats||{};
   if(matchOver){
-    saveMatchHistory(room);const bigName=room.players?.[stats.biggestRoundUid]?.name||"—";
-    els.matchStats.innerHTML=`<div><b>${stats.rounds||g.round||1}</b><span>جولات</span></div><div><b>${stats.blockedRounds||0}</b><span>مرات قفل</span></div><div><b>${stats.biggestRoundPoints||0}</b><span>أكبر جولة • ${escapeHtml(bigName)}</span></div>`;els.matchStats.classList.remove("hidden");
+    saveMatchHistory(room);if(state.solo)recordSoloMatch(room);const bigName=room.players?.[stats.biggestRoundUid]?.name||"—";
+    els.matchStats.innerHTML=`<div><b>${stats.rounds||g.round||1}</b><span>جولات</span></div><div><b>${stats.blockedRounds||0}</b><span>مرات قفل</span></div><div><b>${stats.biggestRoundPoints||0}</b><span>أكبر جولة • ${escapeHtml(bigName)}</span></div>${state.solo?`<div><b>${soloLevel().label}</b><span>مستوى الكمبيوتر</span></div>`:""}`;els.matchStats.classList.remove("hidden");
   }else els.matchStats.classList.add("hidden");
   if(!matchOver&&mode==="points")els.roundText.textContent+=` اللعب مستمر لحد ${target}.`;
   els.newRoundBtn.textContent=matchOver?"مباراة جديدة":"الجولة التالية";els.resultHomeBtn.classList.toggle("hidden",!matchOver);
@@ -1043,6 +1141,9 @@ function cleanupVoice(hideIncoming=true){
 
 async function nextRoundOrMatch(){
   if(!state.roomCode||!state.room)return;
+  if(state.solo){
+    clearBotTurn();const previousStatus=state.room.status;if(previousStatus!=="roundOver"&&previousStatus!=="matchOver")return;const previousWinner=previousStatus==="roundOver"?state.room.game?.winnerUid:(state.room.game?.matchWinnerUid||null);buildSoloRound(state.room,previousWinner,previousStatus==="matchOver");state.roundModalShownFor=null;state.pendingTile=null;els.roundModal.classList.add("hidden");state.lastBoardCount=null;state.lastBoardRound=null;renderGame(state.room);dominoSound("draw");return;
+  }
   els.newRoundBtn.disabled=true;
   const deck=shuffle(newDeck()),fixedRandomUid=Math.random()<.5?state.room.hostUid:state.room.guestUid;
   try{
@@ -1073,6 +1174,7 @@ async function nextRoundOrMatch(){
 }
 
 async function shareRoom(){
+  if(state.solo){toast("وضع الكمبيوتر محلي على جهازك.");return;}
   const url=new URL("./domino.html",location.href); url.searchParams.set("room",state.roomCode);
   const text=`العب معايا دومينو القهوة — كود الغرفة ${state.roomCode}`;
   if(navigator.share){try{await navigator.share({title:"القهوة — دومينو",text,url:url.href});return;}catch{}}
@@ -1080,13 +1182,14 @@ async function shareRoom(){
 }
 async function copyCode(){await navigator.clipboard.writeText(state.roomCode);toast("تم نسخ الكود.");}
 function leaveLocal(){
-  if(state.roomUnsub){state.roomUnsub();state.roomUnsub=null;}
+  clearBotTurn();if(state.roomUnsub){state.roomUnsub();state.roomUnsub=null;}
   cleanupVoice();
   state.roomCode=null;state.room=null;state.chatOpen=false;state.pendingTile=null;clearDropTargets();state.lastChatCount=0;state.lastChatAt=0;state.lastBoardCount=null;state.lastBoardRound=null;
   els.chatPanel.classList.add("hidden");els.gameLayout?.classList.remove("chat-open");els.chatPreview.classList.add("hidden");els.socialDock.classList.add("hidden");els.chatUnread.classList.add("hidden");
-  localStorage.removeItem("domino_room");setView("home");
+  localStorage.removeItem("domino_room");state.solo=false;document.body.classList.remove("solo-mode");els.gameLayout?.classList.remove("solo-game");els.soloThinking?.classList.add("hidden");els.shareInGameBtn?.classList.remove("hidden");els.mobileShareBtn?.classList.remove("hidden");renderSoloStats();setView("home");
 }
 async function leaveRoom(){
+  if(state.solo){leaveLocal();return;}
   if(state.currentCallId) await hangupVoice(true);
   if(state.roomCode&&state.uid){
     try{
@@ -1101,6 +1204,8 @@ els.avatarPicker.addEventListener("click",e=>{
   const b=e.target.closest("button[data-avatar]");if(!b)return;state.selectedAvatar=b.dataset.avatar;
   [...els.avatarPicker.querySelectorAll("button")].forEach(x=>x.classList.toggle("selected",x===b));
 });
+els.soloDifficultyCards?.addEventListener("click",e=>{const b=e.target.closest("button[data-level]");if(b)selectSoloDifficulty(b.dataset.level)});
+els.startSoloBtn?.addEventListener("click",startSoloGame);
 els.createRoomBtn.addEventListener("click",createRoom);
 els.showJoinBtn.addEventListener("click",()=>els.joinBox.classList.toggle("hidden"));
 els.joinRoomBtn.addEventListener("click",()=>joinRoom(els.roomCodeInput.value));
@@ -1153,9 +1258,9 @@ window.addEventListener("resize",()=>{if(state.room?.game)renderBoard(state.room
   setTableTheme(localStorage.getItem("domino_table_theme")||"green");
   setTileStyle(localStorage.getItem("domino_tile_style")||"classic");
   if(els.autoDrawToggle)els.autoDrawToggle.checked=autoDrawEnabled();
-  renderHistory();
+  renderHistory();selectSoloDifficulty(localStorage.getItem("domino_solo_difficulty")||"medium",false);
   els.targetWrap.classList.toggle("hidden",els.matchMode.value==="single");
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=8.1.0").catch(console.warn);
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("./service-worker.js?v=8.2.0").catch(console.warn);
   const n=localStorage.getItem("domino_name");if(n)els.playerName.value=n;
   const a=localStorage.getItem("domino_avatar")||"😎";state.selectedAvatar=a;
   [...els.avatarPicker.querySelectorAll("button")].forEach(x=>x.classList.toggle("selected",x.dataset.avatar===a));

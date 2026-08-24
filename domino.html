@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#081427" />
   <meta name="description" content="القهوة — دومينو أونلاين بغرف خاصة وقواعد قياسية أو مخصصة." />
   <title>دومينو القهوة</title>
-  <link rel="icon" href="./logo-coffee.png?v=8.1.0" type="image/svg+xml" />
-  <link rel="manifest" href="./manifest.webmanifest?v=8.1.0" />
+  <link rel="icon" href="./logo-coffee.png?v=8.2.0" type="image/svg+xml" />
+  <link rel="manifest" href="./manifest.webmanifest?v=8.2.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./domino.css?v=8.1.0" />
+  <link rel="stylesheet" href="./domino.css?v=8.2.0" />
 </head>
 <body>
   <div class="app-bg"></div>
@@ -41,9 +41,9 @@
     <section id="homeView" class="view active">
       <div class="hero card">
         <div class="hero-copy">
-          <span class="eyebrow">دومينو • لاعبان • بدون تسجيل</span>
+          <span class="eyebrow">دومينو • أونلاين أو ضد الكمبيوتر • بدون تسجيل</span>
           <h1>اللمة أحلى مع <em>دومينو القهوة</em></h1>
-          <p>اعمل غرفة، ابعت الكود لصاحبك، وابدأوا اللعب فورًا. الجولة بتتحفظ لحظيًا ولو عملت Refresh ترجع مكانك.</p>
+          <p>العب أونلاين مع صاحبك، أو واجه كمبيوتر القهوة بأربع درجات صعوبة. نفس القواعد والصوت وتجربة اللعب على الموبايل.</p>
 
           <div class="name-row">
             <label for="playerName">اسمك في اللعبة</label>
@@ -57,6 +57,23 @@
             <button type="button" data-avatar="🕶️">🕶️</button>
             <button type="button" data-avatar="👑">👑</button>
           </div>
+
+          <section class="solo-challenge card-subtle" aria-labelledby="soloTitle">
+            <div class="solo-challenge-head">
+              <div><span class="solo-kicker">وضع لاعب واحد</span><h3 id="soloTitle">🤖 تحدّي كمبيوتر القهوة</h3><p>الكمبيوتر لا يرى قطعك ولا يعرف المخزن؛ يلعب فقط بالمعلومات المتاحة لأي لاعب حقيقي.</p></div>
+              <span id="soloLevelBadge" class="solo-level-badge">متوسط</span>
+            </div>
+            <div id="soloDifficultyCards" class="solo-difficulty-cards" role="radiogroup" aria-label="مستوى الكمبيوتر">
+              <button type="button" class="solo-difficulty" data-level="easy" role="radio" aria-checked="false"><b>سهل</b><small>اختيارات بسيطة ومناسبة للتجربة</small></button>
+              <button type="button" class="solo-difficulty selected" data-level="medium" role="radio" aria-checked="true"><b>متوسط</b><small>يتخلص من القطع الثقيلة ويحافظ على المرونة</small></button>
+              <button type="button" class="solo-difficulty" data-level="hard" role="radio" aria-checked="false"><b>صعب</b><small>يقرأ الطاولة ويخطط لإغلاق الأرقام</small></button>
+              <button type="button" class="solo-difficulty expert" data-level="expert" role="radio" aria-checked="false"><b>خبير 👑</b><small>تقدير احتمالات ونظرة متقدمة للنقلة التالية</small></button>
+            </div>
+            <div class="solo-footer-row">
+              <div id="soloStats" class="solo-stats"><span>لم تلعب ضد الكمبيوتر بعد</span></div>
+              <button id="startSoloBtn" class="btn solo-primary" type="button">ابدأ التحدي ضد الكمبيوتر</button>
+            </div>
+          </section>
 
           <div class="rules-preset card-subtle">
             <label for="rulesPreset"><span>نظام القواعد</span></label>
@@ -109,8 +126,8 @@
           </details>
 
           <div class="home-actions">
-            <button id="createRoomBtn" class="btn primary" type="button">إنشاء لعبة جديدة</button>
-            <button id="showJoinBtn" class="btn secondary" type="button">دخول بكود غرفة</button>
+            <button id="createRoomBtn" class="btn primary" type="button">👥 إنشاء غرفة أونلاين</button>
+            <button id="showJoinBtn" class="btn secondary" type="button">🔑 دخول بكود غرفة</button>
           </div>
 
           <div id="joinBox" class="join-box hidden">
@@ -195,7 +212,7 @@
 
           <div class="table card">
             <div id="reactionBubble" class="reaction-bubble hidden"></div>
-            <div id="turnBanner" class="turn-banner">جاري تجهيز الجولة…</div>
+            <div id="turnBanner" class="turn-banner">جاري تجهيز الجولة…</div><div id="soloThinking" class="solo-thinking hidden"><span class="thinking-dots"><i></i><i></i><i></i></span><b>كمبيوتر القهوة بيفكر</b><small id="soloThinkingLevel">المستوى المتوسط</small></div>
             <div id="board" class="board" aria-label="طاولة الدومينو"></div>
             <button id="stockBtn" class="stock" type="button">
               <span class="stock-stack">▰<i>▰</i><i>▰</i></span>
@@ -330,6 +347,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./domino-app.js?v=8.1.0"></script>
+  <script type="module" src="./domino-app.js?v=8.2.0"></script>
 </body>
 </html>
